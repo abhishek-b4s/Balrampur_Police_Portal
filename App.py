@@ -227,8 +227,8 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
             
     return filtered_df
 
-# 📸 गूगल ड्राइव फाइल का डायरेक्ट लिंक
-SP_PHOTO_URL = "https://docs.google.com/uc?export=view&id=1F96XGFoFst9RPcvjqet1SCpy4HiK6Qdu"
+# 📸 यूज़र द्वारा प्रदान किया गया एसपी सर की फोटो का नया लाइव यूआरएल
+SP_PHOTO_URL = "https://uppolice.gov.in/en/officerprofile?transid=2701&slugName=fatehgarh"
 
 # =============================================================
 # चरण 2: सुरक्षित लॉगिन गेटवे (Police UI)
@@ -240,7 +240,7 @@ if not st.session_state.logged_in:
     with col_title:
         st.markdown("<h1 style='color:#002147; margin-bottom:2px;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='margin-top:0px; color:#002147;'>दैनिक ड्यूटी मैनेजमेंट फीडिंग एवं मॉनिटरिंग पोर्टल</h3>", unsafe_allow_html=True)
-        st.markdown("<b style='color:#800000;'>'सुरक्षा आपकी, संकल्प हमारा' - police अधीक्षक कार्यालय, बलरामपुर</b>", unsafe_allow_html=True)
+        st.markdown("<b style='color:#800000;'>'सुरक्षा आपकी, संकल्प हमारा' - पुलिस अधीक्षक कार्यालय, बलरामपुर</b>", unsafe_allow_html=True)
         
     st.markdown("<hr style='border:1px solid #002147;'>", unsafe_allow_html=True)
     
