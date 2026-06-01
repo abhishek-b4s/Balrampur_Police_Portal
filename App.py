@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# कैशे की पूरी तरह से सफाई ताकि नया डेटा तुरंत स्क्रीन पर रिफ्लेक्ट हो
+# कैशे की पूरी तरह से सफाई ताकि लाइव डेटा ही दिखे
 st.cache_data.clear()
 
 # 👮 बलरामपुर पुलिस कस्टमाइज्ड थीम स्टाइलिंग
@@ -90,7 +90,7 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user_role = None
 
-# 🛠️ टाइमस्टैम्प-फ्रेंडली और 100% सटीक फ़िल्टर लॉजिक
+# 🛠️ 100% फुलप्रूफ डायनेमिक फ़िल्टर इंजन
 def filter_duty_data(df, selected_date, selected_thana, selected_duty):
     if df.empty:
         return df
@@ -98,18 +98,9 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
     filtered_df = df.copy()
     filtered_df.columns = [str(c).strip() for c in filtered_df.columns]
     
-    # तारीख के जितने संभव रूप गूगल टाइमस्टैम्प में हो सकते हैं
-    d_dash = selected_date.strftime("%d-%m-%Y")
-    d_slash = selected_date.strftime("%d/%m/%Y")
-    d_y_dash = selected_date.strftime("%Y-%m-%d")
-    
-    # सिंगल डिजिट डेट फॉर्मेट (जैसे 1/6/2026 या 01/06/2026)
-    d_short_slash = f"{int(selected_date.strftime('%d'))}/{int(selected_date.strftime('%m'))}/{selected_date.strftime('%Y')}"
-    d_short_dash = f"{int(selected_date.strftime('%d'))}-{int(selected_date.strftime('%m'))}-{selected_date.strftime('%Y')}"
-
     date_col, thana_col, duty_col = None, None, None
     
-    # डायनेमिक कॉलम स्कैनर
+    # कॉलम ढूंढने का स्मार्ट तरीका
     for c in filtered_df.columns:
         c_low = c.lower()
         if any(x in c_low for x in ['तारीख', 'दिनांक', 'date', 'timestamp', 'time']):
@@ -121,26 +112,29 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
         if any(x in c_low for x in ['ड्यूटी', 'duty', 'प्रकार', 'status', 'विवरण']):
             duty_col = c
 
-    # --- फ़िल्टरिंग प्रक्रिया ---
-    
-    # 1. ⏱️ टाइमस्टैम्प-फ्रेंडली तारीख फ़िल्टर
+    # 1. ⏱️ टाइमस्टैम्प से केवल तारीख निकालकर मैच करना (ताकि समय रुकावट न बने)
     if date_col:
-        def match_date_partial(val):
-            s = str(val).strip()
-            if not s or s.lower() == 'nan': return False
-            return any(f in s for f in [d_dash, d_slash, d_y_dash, d_short_slash, d_short_dash])
-        
-        # सुरक्षा कवच: अगर फ़िल्टर करने के बाद शीट पूरी खाली हो जाती है, तो ओरिजिनल डेटा ही रखें (ताकि डेटा गायब न दिखे)
-        temp_df = filtered_df[filtered_df[date_col].apply(match_date_partial)]
-        if not temp_df.empty:
-            filtered_df = temp_df
+        try:
+            # गूगल टाइमस्टैम्प को कॉमन डेट में बदलकर केवल तारीख का हिस्सा मैच करना
+            filtered_df['parsed_date_internal'] = pd.to_datetime(filtered_df[date_col], errors='coerce').dt.date
+            filtered_df = filtered_df[filtered_df['parsed_date_internal'] == selected_date]
+            filtered_df = filtered_df.drop(columns=['parsed_date_internal'])
+        except Exception:
+            # अगर पुराना तरीका फेल हो तो स्ट्रिंग स्लाइसिंग मैच
+            d_dash = selected_date.strftime("%d-%m-%Y")
+            d_slash = selected_date.strftime("%d/%m/%Y")
+            d_short_slash = f"{int(selected_date.strftime('%d'))}/{int(selected_date.strftime('%m'))}/{selected_date.strftime('%Y')}"
+            def match_date_fallback(val):
+                s = str(val).strip()
+                return any(f in s for f in [d_dash, d_slash, d_short_slash])
+            filtered_df = filtered_df[filtered_df[date_col].apply(match_date_fallback)]
 
-    # 2. थाना फ़िल्टर (केवल तभी काम करेगा जब "सभी थाने" न चुना गया हो)
+    # 2. 🎯 थाना फ़िल्टर (केवल तभी काम करेगा जब "सभी थाने" न हो)
     if selected_thana and selected_thana != "सभी थाने" and thana_col:
         short_name = selected_thana.replace("कोतवाली", "").strip()
         def match_thana(val):
             s = str(val).strip().lower()
-            if not s or s.lower() == 'nan': return False
+            if not s or s == 'nan': return False
             return (selected_thana.lower() in s or short_name.lower() in s)
         filtered_df = filtered_df[filtered_df[thana_col].apply(match_thana)]
 
@@ -148,7 +142,7 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
     if selected_duty and selected_duty != "सभी ड्यूटी" and duty_col:
         def match_duty(val):
             s = str(val).strip().lower()
-            if not s or s.lower() == 'nan': return False
+            if not s or s == 'nan': return False
             return (str(selected_duty).lower() in s)
         filtered_df = filtered_df[filtered_df[duty_col].apply(match_duty)]
             
@@ -163,7 +157,7 @@ if not st.session_state.logged_in:
     col_logo, col_title = st.columns([1, 4])
     with col_logo: st.image(SP_PHOTO_URL, width=135)
     with col_title:
-        st.markdown("<h1 style='color:#002147;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:#002147;'>🚨 उत्तर प्रदेश police | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
         st.markdown("<h3>दैनिक ड्यूटी मैनेजमेंट फीडिंग एवं मॉनिटरिंग पोर्टल</h3>", unsafe_allow_html=True)
     
     with st.container():
@@ -195,13 +189,14 @@ else:
     DYNAMIC_DUTY_SHEET_URL = f"https://docs.google.com/spreadsheets/d/1WFvkW8CXYIN_bKJWN5m7Ieh814LlFLjYqZVpjivJhdA/export?format=csv&gid=127153860&cache_bypass={live_t}"
     DYNAMIC_MASTER_SHEET_URL = f"https://docs.google.com/spreadsheets/d/1WFvkW8CXYIN_bKJWN5m7Ieh814LlFLjYqZVpjivJhdA/export?format=csv&gid=0&cache_bypass={live_t}"
 
+    # === मुख्यालय मास्टर व्यू ===
     if st.session_state.user_role == "hq_master":
         st.header("📊 मुख्यालय मॉनिटरिंग डैशबोर्ड (Master Page)")
-        tab1, tab2 = st.tabs(["📋 लाइव ड्यूटी मॉनिटर", "👮 पुलिसकर्मी विवरण"])
+        tab1, tab2 = st.tabs(["📋 लाइव ड्यूटी मॉनिटर", "👮 समस्त थानों के कर्मी विवरण"])
         
         with tab1:
             col1, col2, col3 = st.columns(3)
-            with col1: filter_date = st.date_input("तारीख", datetime.now(), key="hq_d")
+            with col1: filter_date = st.date_input("तारीख", datetime.now().date(), key="hq_d")
             with col2: filter_thana = st.selectbox("थाना", ["सभी थाने"] + THANA_LIST, key="hq_t")
             with col3: filter_duty = st.selectbox("ड्यूटी प्रकार", ["सभी ड्यूटी"] + DUTY_TYPES, key="hq_du")
             
@@ -210,22 +205,44 @@ else:
                     df_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
                     filtered_df = filter_duty_data(df_duty, filter_date, filter_thana, filter_duty)
                     
-                    if not filtered_df.empty:
-                        st.success(f"📊 रिकॉर्ड मिल गया है - {filter_thana} [कुल: {len(filtered_df)} रिकॉर्ड]")
-                        st.dataframe(filtered_df, use_container_width=True)
-                    else:
-                        st.warning(f"⚠️ चयनित मानदंडों के आधार पर सटीक डेटा मैच नहीं हुआ।")
+                    st.success(f"📊 रिकॉर्ड लोड हो गया है [कुल: {len(filtered_df)} रिकॉर्ड]")
+                    st.dataframe(filtered_df, use_container_width=True)
                 except Exception as e:
                     st.error(f"कनेक्शन फेल: {e}")
 
         with tab2:
-            search_master_thana = st.selectbox("थाना चुनें", ["जनपद के सभी थाने"] + THANA_LIST)
-            if st.button("🔍 मास्टर सूची लोड करें", use_container_width=True):
+            st.subheader("👮 थाना वार पुलिसकर्मी सूची (मास्टर रिकॉर्ड)")
+            search_master_thana = st.selectbox("थाना चुनें", ["जनपद के सभी थाने"] + THANA_LIST, key="master_thana_dropdown")
+            
+            if st.button("🔍 मास्टर सूची लोड करें", use_container_width=True, key="load_master_btn"):
                 try:
                     df_master = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
-                    st.dataframe(df_master, use_container_width=True)
-                except Exception as e: st.error(str(e))
+                    df_master.columns = [str(c).strip() for c in df_master.columns]
+                    df_master = df_master.fillna("").astype(str)
+                    
+                    if search_master_thana != "जनपद के सभी थाने":
+                        thana_col_m = None
+                        for col_m in df_master.columns:
+                            if any(x in col_m.lower() for x in ['थाना', 'thana', 'इकाई', 'unit']):
+                                thana_col_m = col_m
+                                break
+                        
+                        if thana_col_m:
+                            # 🎯 यहाँ सटीक रूप से चुने गए थाने का ही मिलान होगा (उतरौला वाला एरर फिक्स)
+                            short_search_name = search_master_thana.replace("कोतवाली", "").strip()
+                            filtered_master = df_master[df_master[thana_col_m].str.contains(short_search_name, case=False, na=False)]
+                        else:
+                            short_search_name = search_master_thana.replace("कोतवाली", "").strip()
+                            filtered_master = df_master[df_master.apply(lambda r: r.str.contains(short_search_name, case=False)).any(axis=1)]
+                    else:
+                        filtered_master = df_master.copy()
+                        
+                    st.success(f"🗂️ {search_master_thana} का मास्टर रिकॉर्ड [कुल: {len(filtered_master)} पुलिसकर्मी]")
+                    st.dataframe(filtered_master, use_container_width=True)
+                except Exception as e: 
+                    st.error(f"त्रुटि: {e}")
 
+    # === थाना यूजर व्यू ===
     else:
         assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अज्ञात थाना")
         thana_tab1, thana_tab2 = st.tabs(["📝 ड्यूटी फीड करें", "🔍 लाइव ड्यूटी देखें"])
@@ -239,24 +256,29 @@ else:
                 df_all_staff.columns = [str(c).strip() for c in df_all_staff.columns]
                 df_all_staff = df_all_staff.fillna("").astype(str)
                 
-                thana_col_staff = next((c for c in df_all_staff.columns if 'थाना' in c or 'thana' in c.lower()), None)
+                thana_col_staff = None
+                for c_st in df_all_staff.columns:
+                    if any(x in c_st.lower() for x in ['थाना', 'thana', 'unit']):
+                        thana_col_staff = c_st
+                        break
+                
                 if thana_col_staff:
                     short_assigned = assigned_thana.replace("कोतवाली", "").strip()
-                    df_thana_staff = df_all_staff[df_all_staff[thana_col_staff].apply(lambda x: assigned_thana in str(x) or short_assigned in str(x))]
+                    df_thana_staff = df_all_staff[df_all_staff[thana_col_staff].str.contains(short_assigned, case=False, na=False)]
                 else:
-                    df_thana_staff = df_all_staff[df_all_staff.apply(lambda r: r.str.contains(assigned_thana)).any(axis=1)]
+                    df_thana_staff = df_all_staff.copy()
                 
                 for _, row in df_thana_staff.iterrows():
                     col_list = list(df_all_staff.columns)
                     pno_col = next((c for c in col_list if 'pno' in c.lower() or 'नंबर' in c or 'न०' in c), col_list[0])
-                    name_col = next((c for c in col_list if 'नाम' in c.lower() or 'name' in c.lower() or 'कर्मचारी' in c), col_list[1])
-                    rank_col = next((c for c in col_list if 'पद' in c or 'rank' in c.lower() or 'designation' in c.lower()), None)
+                    name_col = next((c for c in col_list if 'नाम' in c.lower() or 'name' in c.lower()), col_list[1])
+                    rank_col = next((c for c in col_list if 'पद' in c or 'rank' in c.lower()), None)
                     
                     pno_val = str(row[pno_col]).split('.')[0]
                     display_text = f"{pno_val} | {row[name_col]} | {row[rank_col] if rank_col else ''}"
                     staff_options.append(display_text)
                     staff_dict[display_text] = {"pno": pno_val, "name": row[name_col], "rank": row[rank_col] if rank_col else "आरक्षी"}
-            except Exception as e: pass
+            except Exception: pass
 
             selected_staff = st.selectbox("सूची से कर्मचारी चुनें", staff_options, key="thana_staff_select")
             
@@ -282,21 +304,17 @@ else:
                         }
                         try:
                             requests.post(form_url, data=payload)
-                            st.success(f"✔️ {name} का रिकॉर्ड सफलतापूर्वक दर्ज हो गया है!")
-                            st.balloons()
+                            st.success(f"✔️ {name} का रिकॉर्ड दर्ज हो गया है!")
                         except: st.error("सबमिशन फेल हुआ।")
                     else: st.error("❌ कृपया कर्मचारी चुनें!")
 
         with thana_tab2:
-            thana_filter_date = st.date_input("तारीख चुनें", datetime.now(), key="th_view_d")
+            thana_filter_date = st.date_input("तारीख चुनें", datetime.now().date(), key="th_view_d")
             if st.button("🔄 अपने थाने का रिकॉर्ड देखें / रीफ्रेश करें", type="primary", use_container_width=True):
                 try:
                     df_thana_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
                     final_thana_df = filter_duty_data(df_thana_duty, thana_filter_date, assigned_thana, "सभी ड्यूटी")
                     
-                    if not final_thana_df.empty:
-                        st.success(f"📊 केवल **{assigned_thana}** का लाइव ड्यूटी रिकॉर्ड:")
-                        st.dataframe(final_thana_df, use_container_width=True)
-                    else:
-                        st.warning(f"⚠️ कोई रिकॉर्ड दर्ज नहीं मिला।")
+                    st.success(f"📊 केवल **{assigned_thana}** का लाइव रिकॉर्ड [कुल: {len(final_thana_df)} रिकॉर्ड]:")
+                    st.dataframe(final_thana_df, use_container_width=True)
                 except Exception as e: st.error(str(e))
