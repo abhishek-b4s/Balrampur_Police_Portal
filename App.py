@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# कैशे क्लियर ताकि पुराना डेटा मेमोरी में न फंसा रहे
+# कैशे क्लियर ताकि नया डेटा तुरंत गूगल शीट से सिंक हो
 st.cache_data.clear()
 
 # 👮 पुलिसिया कलर पैलेट: खाकी, गहरा नीला (#002147), लाल (#800000)
@@ -37,7 +37,7 @@ st.markdown("""
         max-width: 95% !important;
     }
 
-    /* पुलिस स्टाइल बटन - गहरा नीला, गोल्डन बॉर्डर और सफेद अक्षर */
+    /* पुलिस स्टाइल बटन */
     .stButton>button {
         background-color: #002147 !important;
         color: #ffffff !important;
@@ -54,7 +54,7 @@ st.markdown("""
         border-color: #ffffff !important;
     }
 
-    /* टैब्स की स्टाइलिंग - खाकी वर्दी पर नीली और सुनहरी पट्टी */
+    /* टैब्स की स्टाइलिंग */
     .stTabs [data-baseweb="tab-list"] {
         background-color: #002147 !important;
         padding: 8px !important;
@@ -72,13 +72,11 @@ st.markdown("""
         border-radius: 4px !important;
     }
 
-    /* हेडिंग्स - खाकी वर्दी पर गहरे नीले और लाल बॉर्डर के अक्षर */
     h1, h2, h3, h4 {
         color: #002147 !important;
         font-weight: bold !important;
     }
     
-    /* डेटा फ़्रेम/टेबल को बॉर्डर देना */
     [data-testid="stDataFrame"] {
         background-color: #ffffff !important;
         border: 3px solid #002147 !important;
@@ -86,13 +84,11 @@ st.markdown("""
         padding: 5px !important;
     }
 
-    /* इनपुट और सेलेक्ट बॉक्स के बॉर्डर्स को गहरा करना */
     .stTextInput>div>div>input, .stSelectbox>div>div>div, .stDateInput>div>div>input {
         border: 2px solid #002147 !important;
         border-radius: 6px !important;
     }
 
-    /* अलर्ट बॉक्स - पुलिस पेट्रोलिंग लाइट जैसा लाल और सुनहरा */
     .alert-box {
         background-color: #800000 !important;
         color: white !important;
@@ -115,12 +111,12 @@ THANA_LIST = [
 
 # ड्यूटी एवं कार्यभार स्थिति के प्रकार
 DUTY_TYPES = [
-    "लॉ एंड ओरडर (L&O)", "वीआईपी (VIP) ड्यूटी", "पिकेट/गश्त", "कोर्ट ड्यूटी", 
+    "लॉ एंड ओरडर (L&O)", "वीआईपी (VIP) – ड्यूटी", "पिकेट/गश्त", "कोर्ट ड्यूटी", 
     "समन तामीला", "तफ्तीश/जांच", "आकस्मिक अवकाश", "प्रसूति अवकाश", 
     "सामान्य अवकाश", "मेडिकल अवकाश", "गैर हाजिर", "निलम्बित", "अन्य"
 ]
 
-# सुरक्षित लॉगिन क्रेडेंशियल्स (CUG नंबर्स एवं मास्टर आईडी)
+# सुरक्षित लॉगिन क्रेडेंशियल्स
 USER_CREDENTIALS = {
     "hq_master":  "hq@123", 
     "9454403022": "thana@3022",
@@ -171,54 +167,62 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user_role = None
 
-# 🛠️ बिल्कुल सटीक और मजबूत मॉनिटरिंग फ़िल्टर लॉजिक
+# 🛠️ 100% फुलप्रूफ इंडेक्स-बेस्ड डायनेमिक फ़िल्टर लॉजिक
 def filter_duty_data(df, selected_date, selected_thana, selected_duty):
     if df.empty:
         return df
     
+    # कॉपी बनाएं और सारे कॉलम के एक्स्ट्रा स्पेस साफ करें
     filtered_df = df.copy()
     filtered_df.columns = [str(c).strip() for c in filtered_df.columns]
     
-    # 1. थाना कॉलम फ़िल्टर
-    if selected_thana and selected_thana != "सभी थाने":
-        thana_col = None
-        for c in filtered_df.columns:
-            if 'थाना' in c or 'thana' in c.lower() or 'इकाई' in c:
-                thana_col = c
-                break
-        if thana_col:
-            filtered_df[thana_col] = filtered_df[thana_col].astype(str).str.strip()
-            short_name = selected_thana.replace("कोतवाली", "").strip()
-            thana_mask = filtered_df[thana_col].apply(lambda x: selected_thana in str(x) or short_name in str(x) or str(x) in selected_thana)
-            filtered_df = filtered_df[thana_mask]
-
-    # 2. ड्यूटी का प्रकार फ़िल्टर
-    if selected_duty and selected_duty != "सभी ड्यूटी":
-        duty_col = None
-        for c in filtered_df.columns:
-            if 'ड्यूटी' in c or 'प्रकार' in c or 'duty' in c.lower():
-                duty_col = c
-                break
-        if duty_col:
-            filtered_df = filtered_df[filtered_df[duty_col].astype(str).str.contains(str(selected_duty), case=False, na=False)]
-
-    # 3. स्मार्ट तारीख फ़िल्टर (गूगल शीट के टाइमस्टैम्प/स्ट्रिंग सर्च के अनुकूल)
+    # तारीख के संभावित फॉर्मैट्स
     d_dash = selected_date.strftime("%d-%m-%Y")       # 24-05-2026
     d_slash = selected_date.strftime("%d/%m/%Y")      # 24/05/2026
     d_y_dash = selected_date.strftime("%Y-%m-%d")     # 2026-05-24
-    d_short_slash = selected_date.strftime("%e/%m/%Y").strip() # 24/5/2026 या 5/5/2026 जैसी स्थिति के लिए
     
+    # सिंगल डिजिट डेट्स (जैसे 24/5/2026)
+    d_short_slash = f"{int(selected_date.strftime('%d'))}/{int(selected_date.strftime('%m'))}/{selected_date.strftime('%Y')}"
+    d_short_dash = f"{int(selected_date.strftime('%d'))}-{int(selected_date.strftime('%m'))}-{selected_date.strftime('%Y')}"
+
+    # डायनेमिकली सही कॉलम ढूंढना (बिना कॉलम नाम की स्पेलिंग पर निर्भर रहे)
     date_col = None
+    thana_col = None
+    duty_col = None
+    
     for c in filtered_df.columns:
-        if 'तारीख' in c or 'दिनांक' in c or 'date' in c.lower() or 'timestamp' in c.lower() or 'time' in c.lower():
+        c_low = c.lower()
+        if any(x in c_low for x in ['तारीख', 'दिनांक', 'date', 'timestamp', 'time']):
             date_col = c
-            break
-            
-    if date_col and not filtered_df.empty:
-        filtered_df[date_col] = filtered_df[date_col].astype(str).str.strip()
-        # 'in str(x)' का उपयोग किया है ताकि अगर तारीख के साथ टाइम (Timestamp) भी जुड़ा हो, तो भी मैच हो जाए
-        date_mask = filtered_df[date_col].apply(lambda x: d_dash in str(x) or d_slash in str(x) or d_y_dash in str(x) or d_short_slash in str(x))
-        filtered_df = filtered_df[date_mask]
+        if any(x in c_low for x in ['थाना', 'thana', 'इकाई', 'unit']):
+            thana_col = c
+        if any(x in c_low for x in ['ड्यूटी', 'duty', 'प्रकार', 'status', 'विवरण']):
+            duty_col = c
+
+    # 1. तारीख फ़िल्टर (Safe Masking)
+    if date_col:
+        def match_date(val):
+            s = str(val).strip()
+            if not s or s.lower() == 'nan': return False
+            return any(f in s for f in [d_dash, d_slash, d_y_dash, d_short_slash, d_short_dash])
+        filtered_df = filtered_df[filtered_df[date_col].apply(match_date)]
+
+    # 2. थाना फ़िल्टर
+    if selected_thana and selected_thana != "सभी थाने" and thana_col:
+        short_name = selected_thana.replace("कोतवाली", "").strip()
+        def match_thana(val):
+            s = str(val).strip().lower()
+            if not s or s.lower() == 'nan': return False
+            return (selected_thana.lower() in s or short_name.lower() in s)
+        filtered_df = filtered_df[filtered_df[thana_col].apply(match_thana)]
+
+    # 3. ड्यूटी फ़िल्टर
+    if selected_duty and selected_duty != "सभी ड्यूटी" and duty_col:
+        def match_duty(val):
+            s = str(val).strip().lower()
+            if not s or s.lower() == 'nan': return False
+            return (str(selected_duty).lower() in s)
+        filtered_df = filtered_df[filtered_df[duty_col].apply(match_duty)]
             
     return filtered_df
 
@@ -233,7 +237,7 @@ if not st.session_state.logged_in:
     with col_logo:
         st.image(SP_PHOTO_URL, width=135, use_container_width=False)
     with col_title:
-        st.markdown("<h1 style='color:#002147; margin-bottom:2px;'>🚨 उत्तर Pradesh पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:#002147; margin-bottom:2px;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='margin-top:0px; color:#002147;'>दैनिक ड्यूटी मैनेजमेंट फीडिंग एवं मॉनिटरिंग पोर्टल</h3>", unsafe_allow_html=True)
         st.markdown("<b style='color:#800000;'>'सुरक्षा आपकी, संकल्प हमारा' - पुलिस अधीक्षक कार्यालय, बलरामपुर</b>", unsafe_allow_html=True)
         
@@ -282,48 +286,10 @@ else:
             
         st.markdown("---")
         
-        # डायनेमिक टाइमस्टैम्प ताकि गूगल शीट का पुराना डेटा कैश न हो
+        # डायनेमिक टाइमस्टैम्प जनरेशन ताकि कैशिंग पूरी तरह बाईपास हो जाए
         live_stamp = random.randint(100000, 999999)
         DYNAMIC_DUTY_SHEET_URL = f"https://docs.google.com/spreadsheets/d/1WFvkW8CXYIN_bKJWN5m7Ieh814LlFLjYqZVpjivJhdA/export?format=csv&gid=127153860&cache_bypass={live_stamp}&t={live_stamp}"
         DYNAMIC_MASTER_SHEET_URL = f"https://docs.google.com/spreadsheets/d/1WFvkW8CXYIN_bKJWN5m7Ieh814LlFLjYqZVpjivJhdA/export?format=csv&gid=0&cache_bypass={live_stamp}&t={live_stamp}"
-
-        # 🔔 पूर्व-चेतावनी प्रणाली (Leave Expiry Alerts)
-        try:
-            df_duty_check = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
-            df_duty_check.columns = [str(c).strip() for c in df_duty_check.columns]
-            
-            end_date_col = next((c for c in df_duty_check.columns if 'तक' in c or 'end' in c.lower() or 'expiry' in c.lower()), None)
-            name_col_c = next((c for c in df_duty_check.columns if 'नाम' in c or 'name' in c.lower()), None)
-            thana_col_c = next((c for c in df_duty_check.columns if 'थाना' in c or 'thana' in c.lower() or 'इकाई' in c), None)
-            type_col_c = next((c for c in df_duty_check.columns if 'ड्यूटी' in c or 'प्रकार' in c), None)
-            
-            if end_date_col and name_col_c:
-                today = datetime.now().date()
-                alert_list = []
-                
-                for _, r in df_duty_check.dropna(subset=[end_date_col, name_col_c]).iterrows():
-                    try:
-                        val_str = str(r[end_date_col]).strip()
-                        for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"):
-                            try:
-                                clean_date = datetime.strptime(val_str.split()[0], fmt).date()
-                                break
-                            except:
-                                continue
-                        
-                        if clean_date and today >= clean_date >= (today - timedelta(days=2)):
-                            thana_info = r[thana_col_c] if thana_col_c else "अज्ञात इकाई"
-                            type_info = r[type_col_c] if type_col_c else "अवकाश"
-                            alert_list.append(f"⚠️ **{r[name_col_c]}** ({thana_info}) - {type_info} समाप्ति तिथि: {clean_date.strftime('%d-%m-%Y')}")
-                    except:
-                        continue
-                
-                if alert_list:
-                    st.markdown("### 🔔 अवकाश वापसी पूर्व-चेतावनी अलर्ट")
-                    for alert in alert_list[:5]:
-                        st.markdown(f"<div class='alert-box'>{alert} <br> 👉 कर्मचारी की आमद/वापसी सुनिश्चित कराएं।</div>", unsafe_allow_html=True)
-        except:
-            pass
 
         st.header("📊 मुख्यालय मॉनिटरिंग डैशबोर्ड (Master Page)")
         
@@ -339,13 +305,12 @@ else:
             with col3:
                 filter_duty = st.selectbox("ड्यूटी का प्रकार", ["सभी ड्यूटी"] + DUTY_TYPES, key="hq_duty")
             
-            # 🔍 डिमांड के अनुसार लगाया गया मुख्य 'सर्च बटन'
+            # 🔍 लाइव सर्च बटन
             if st.button("🔍 लाइव डेटा सर्च / रीफ्रेश करें", type="primary", use_container_width=True):
                 try:
                     df_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
-                    df_duty.columns = [str(c).strip() for c in df_duty.columns]
-                    df_duty = df_duty.fillna("").astype(str)
                     
+                    # डेटा क्लीनिंग और फ़िल्टर अप्लाई करना
                     filtered_df = filter_duty_data(df_duty, filter_date, filter_thana, filter_duty)
                     
                     if not filtered_df.empty:
@@ -390,7 +355,6 @@ else:
         
         thana_tab1, thana_tab2 = st.tabs(["📝 नई ड्यूटी फीड करें", "🔍 अपने थाने की लाइव ड्यूटी देखें"])
         
-        # थानों के लिए भी फ्रेश लाइव यूआरएल सेटअप
         thana_stamp = random.randint(100000, 999999)
         THANA_DUTY_SHEET_URL = f"https://docs.google.com/spreadsheets/d/1WFvkW8CXYIN_bKJWN5m7Ieh814LlFLjYqZVpjivJhdA/export?format=csv&gid=127153860&cache_bypass={thana_stamp}&t={thana_stamp}"
         THANA_MASTER_SHEET_URL = f"https://docs.google.com/spreadsheets/d/1WFvkW8CXYIN_bKJWN5m7Ieh814LlFLjYqZVpjivJhdA/export?format=csv&gid=0&cache_bypass={thana_stamp}&t={thana_stamp}"
@@ -494,8 +458,6 @@ else:
             if st.button("🔄 अपने थाने का रिकॉर्ड देखें / रीफ्रेश करें", type="primary", use_container_width=True):
                 try:
                     df_thana_duty = pd.read_csv(THANA_DUTY_SHEET_URL)
-                    df_thana_duty.columns = [str(c).strip() for c in df_thana_duty.columns]
-                    df_thana_duty = df_thana_duty.fillna("").astype(str)
                     
                     final_thana_df = filter_duty_data(df_thana_duty, thana_filter_date, assigned_thana, thana_filter_duty)
                     
