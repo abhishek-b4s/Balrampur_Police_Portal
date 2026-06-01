@@ -148,7 +148,7 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
             
     return filtered_df
 
-SP_PHOTO_URL = "https://i.ibb.co/6R2N4h94/Whats-App-Image-2026-06-01-at-12-58-52-PM.jpg"
+SP_PHOTO_URL = "https://drive.google.com/file/d/1F96XGFoFst9RPcvjqet1SCpy4HiK6Qdu/view?usp=drive_link"
 
 # =============================================================
 # चरण 2: सुरक्षित लॉगिन गेटवे
