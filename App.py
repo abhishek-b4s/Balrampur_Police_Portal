@@ -337,23 +337,28 @@ else:
             
         tab1, tab2 = st.tabs(["📋 लाइव ड्यूटी मॉनिटर", "👮 जनपद के समस्त पुलिसकर्मियों का विवरण"])
         
-        with tab1:
+      with tab1:
             st.subheader("🔍 लाइव ड्यूटी फ़िल्टर पैनल")
             col1, col2, col3 = st.columns(3)
             with col1:
+                # यह बाई डिफ़ॉल्ट आज की तारीख (datetime.now()) दिखाएगा, और बदलने पर तुरंत अपडेट होगा
                 filter_date = st.date_input("तारीख चुनें", datetime.now(), key="hq_date")
             with col2:
+                # थाना चुनने का बॉक्स
                 filter_thana = st.selectbox("थाना फ़िल्टर", ["सभी थाने"] + THANA_LIST, key="hq_thana")
             with col3:
+                # ड्यूटी का प्रकार फ़िल्टर
                 filter_duty = st.selectbox("ड्यूटी का प्रकार", ["सभी ड्यूटी"] + DUTY_TYPES, key="hq_duty")
             
+            # फ़िल्टर फ़ंक्शन को कॉल करना
             filtered_df = filter_duty_data(df_duty, filter_date, filter_thana, filter_duty)
             
+            # डेटा को स्क्रीन पर लाइव दिखाना
             if not filtered_df.empty:
-                st.success(f"📊 कुल **{len(filtered_df)}** रिकॉर्ड स्क्रीन पर लाइव प्रदर्शित हैं:")
+                st.success(f"📊 **{filter_thana}** का दिनांक **{filter_date.strftime('%d-%m-%Y')}** का लाइव रिकॉर्ड [कुल: {len(filtered_df)} रिकॉर्ड]")
                 st.dataframe(filtered_df, use_container_width=True)
             else:
-                st.warning("⚠️ चयनित फ़िल्टर या तारीख में कोई ड्यूटी रिकॉर्ड उपलब्ध नहीं मिला।")
+                st.warning(f"⚠️ चयनित तारीख ({filter_date.strftime('%d-%m-%Y')}) और चयनित थाने ({filter_thana}) में कोई ड्यूटी रिकॉर्ड उपलब्ध नहीं मिला।")
 
         with tab2:
             st.subheader("🗂️ थाना वार पुलिसकर्मी सूची (मास्टर रिकॉर्ड)")
