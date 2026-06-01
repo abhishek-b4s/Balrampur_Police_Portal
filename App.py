@@ -37,7 +37,7 @@ st.markdown("""
         max-width: 95% !important;
     }
 
-    /* पुलिस स्टाइल बटन - गहरा नीला, गोल्डन बॉर्डर और सफेद अक्षर */
+    /* पुलिस स्टाइल बटन */
     .stButton>button {
         background-color: #002147 !important;
         color: #ffffff !important;
@@ -54,7 +54,7 @@ st.markdown("""
         border-color: #ffffff !important;
     }
 
-    /* टैब्स की स्टाइलिंग - खाकी वर्दी पर नीली और सुनहरी पट्टी */
+    /* टैब्स की स्टाइलिंग */
     .stTabs [data-baseweb="tab-list"] {
         background-color: #002147 !important;
         padding: 8px !important;
@@ -72,13 +72,11 @@ st.markdown("""
         border-radius: 4px !important;
     }
 
-    /* हेडिंग्स - खाकी वर्दी पर गहरे नीले और लाल बॉर्डर के अक्षर */
     h1, h2, h3, h4 {
         color: #002147 !important;
         font-weight: bold !important;
     }
     
-    /* डेटा फ़्रेम/टेबल को बॉर्डर देना */
     [data-testid="stDataFrame"] {
         background-color: #ffffff !important;
         border: 3px solid #002147 !important;
@@ -86,13 +84,11 @@ st.markdown("""
         padding: 5px !important;
     }
 
-    /* इनपुट और सेलेक्ट बॉक्स के बॉर्डर्स को गहरा करना */
     .stTextInput>div>div>input, .stSelectbox>div>div>div, .stDateInput>div>div>input {
         border: 2px solid #002147 !important;
         border-radius: 6px !important;
     }
 
-    /* अलर्ट बॉक्स - पुलिस पेट्रोलिंग लाइट जैसा लाल और सुनहरा */
     .alert-box {
         background-color: #800000 !important;
         color: white !important;
@@ -120,7 +116,7 @@ DUTY_TYPES = [
     "सामान्य अवकाश", "मेडिकल अवकाश", "गैर हाजिर", "निलम्बित", "अन्य"
 ]
 
-# सुरक्षित लॉगिन क्रेडेंशियल्स (CUG नंबर्स एवं मास्टर आईडी)
+# सुरक्षित लॉगिन क्रेडेंशियल्स
 USER_CREDENTIALS = {
     "hq_master":  "hq@123", 
     "9454403022": "thana@3022",
@@ -171,7 +167,7 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user_role = None
 
-# 🛠️ बिल्कुल सटीक और 100% फुलप्रूफ तारीख और थाना फ़िल्टर लॉजिक
+# 🛠️ सरल, सीधा और बेहद मजबूत फ़िल्टर लॉजिक
 def filter_duty_data(df, selected_date, selected_thana, selected_duty):
     if df.empty:
         return df
@@ -179,7 +175,7 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
     filtered_df = df.copy()
     filtered_df.columns = [str(c).strip() for c in filtered_df.columns]
     
-    # 1. थाना कॉलम फ़िल्टर
+    # 1. थाना कॉलम फ़िल्टर (स्ट्रिंग मैचिंग)
     if selected_thana and selected_thana != "सभी थाने":
         thana_col = None
         for c in filtered_df.columns:
@@ -187,10 +183,12 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
                 thana_col = c
                 break
         if thana_col:
-            filtered_df[thana_col] = filtered_df[thana_col].astype(str).str.strip()
+            # कोतवाली हटाकर सिर्फ मूल नाम से भी मैच करते हैं (जैसे 'नगर' या 'देहात')
             short_name = selected_thana.replace("कोतवाली", "").strip()
-            thana_mask = filtered_df[thana_col].apply(lambda x: selected_thana in str(x) or short_name in str(x) or str(x) in selected_thana)
-            filtered_df = filtered_df[thana_mask]
+            filtered_df = filtered_df[
+                filtered_df[thana_col].astype(str).str.contains(selected_thana, case=False, na=False) |
+                filtered_df[thana_col].astype(str).str.contains(short_name, case=False, na=False)
+            ]
 
     # 2. ड्यूटी का प्रकार फ़िल्टर
     if selected_duty and selected_duty != "सभी ड्यूटी":
@@ -202,14 +200,14 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
         if duty_col:
             filtered_df = filtered_df[filtered_df[duty_col].astype(str).str.contains(str(selected_duty), case=False, na=False)]
 
-    # 3. 🎯 100% अचूक तारीख मैचिंग (स्लैश, डैश और टाइमस्टैम्प के लिए)
-    day_str = selected_date.strftime("%d")     # जैसे "23"
-    month_str = selected_date.strftime("%m")   # जैसे "05"
-    year_str = selected_date.strftime("%Y")    # जैसे "2026"
+    # 3. 🎯 सीधा तारीख फ़िल्टर (बिना किसी जटिल लूप के सीधा स्ट्रिंग मैच)
+    d_dash = selected_date.strftime("%d-%m-%Y")       # 23-05-2026
+    d_slash = selected_date.strftime("%d/%m/%Y")      # 23/05/2026
+    d_y_dash = selected_date.strftime("%Y-%m-%d")     # 2026-05-23
     
-    # सिंगल डिजिट वाले दिनों/महीनों के लिए (जैसे 23/5/2026 की स्थिति में)
-    short_day_str = str(int(day_str))
-    short_month_str = str(int(month_str))
+    # सिंगल डिजिट डेट्स के लिए (जैसे 23/5/2026 या 5/5/2026)
+    d_short_slash = f"{int(selected_date.strftime('%d'))}/{int(selected_date.strftime('%m'))}/{selected_date.strftime('%Y')}"
+    d_short_dash = f"{int(selected_date.strftime('%d'))}-{int(selected_date.strftime('%m'))}-{selected_date.strftime('%Y')}"
 
     date_col = None
     for c in filtered_df.columns:
@@ -218,24 +216,14 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
             break
             
     if date_col and not filtered_df.empty:
-        def match_date_flexibly(cell_value):
-            val = str(cell_value).strip()
-            if not val:
-                return False
-            
-            # साल और महीना दोनों में होना ही चाहिए
-            if year_str not in val:
-                return False
-                
-            # चेक करें कि क्या महीना सही पोजीशन/फॉर्मेट में है
-            if month_str in val or f"/{short_month_str}/" in val or f"-{short_month_str}-" in val:
-                # चेक करें कि क्या दिन भी मौजूद है
-                if day_str in val or val.startswith(short_day_str) or f"/{short_day_str}/" in val or f"-{short_day_str}-" in val or f" {short_day_str} " in val:
-                    return True
-            return False
-
-        date_mask = filtered_df[date_col].apply(match_date_flexibly)
-        filtered_df = filtered_df[date_mask]
+        # अगर डेटा में इनमें से कोई भी एक फॉर्मेट मैच हो गया, तो वह रो सेलेक्ट हो जाएगी
+        filtered_df = filtered_df[
+            filtered_df[date_col].astype(str).str.contains(d_dash, na=False) |
+            filtered_df[date_col].astype(str).str.contains(d_slash, na=False) |
+            filtered_df[date_col].astype(str).str.contains(d_y_dash, na=False) |
+            filtered_df[date_col].astype(str).str.contains(d_short_slash, na=False) |
+            filtered_df[date_col].astype(str).str.contains(d_short_dash, na=False)
+        ]
             
     return filtered_df
 
