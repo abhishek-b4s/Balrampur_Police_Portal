@@ -238,7 +238,7 @@ if not st.session_state.logged_in:
     with col_logo:
         st.image(SP_PHOTO_URL, width=135, use_container_width=False)
     with col_title:
-        st.markdown("<h1 style='color:#002147; margin-bottom:2px;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:#002147; margin-bottom:2px;'>🚨 उत्तर प्रदेश police | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='margin-top:0px; color:#002147;'>दैनिक ड्यूटी मैनेजमेंट फीडिंग एवं मॉनिटरिंग पोर्टल</h3>", unsafe_allow_html=True)
         st.markdown("<b style='color:#800000;'>'सुरक्षा आपकी, संकल्प हमारा' - पुलिस अधीक्षक कार्यालय, बलरामपुर</b>", unsafe_allow_html=True)
         
@@ -337,23 +337,18 @@ else:
             
         tab1, tab2 = st.tabs(["📋 लाइव ड्यूटी मॉनिटर", "👮 जनपद के समस्त पुलिसकर्मियों का विवरण"])
         
-      with tab1:
+        with tab1:
             st.subheader("🔍 लाइव ड्यूटी फ़िल्टर पैनल")
             col1, col2, col3 = st.columns(3)
             with col1:
-                # यह बाई डिफ़ॉल्ट आज की तारीख (datetime.now()) दिखाएगा, और बदलने पर तुरंत अपडेट होगा
                 filter_date = st.date_input("तारीख चुनें", datetime.now(), key="hq_date")
             with col2:
-                # थाना चुनने का बॉक्स
                 filter_thana = st.selectbox("थाना फ़िल्टर", ["सभी थाने"] + THANA_LIST, key="hq_thana")
             with col3:
-                # ड्यूटी का प्रकार फ़िल्टर
                 filter_duty = st.selectbox("ड्यूटी का प्रकार", ["सभी ड्यूटी"] + DUTY_TYPES, key="hq_duty")
             
-            # फ़िल्टर फ़ंक्शन को कॉल करना
             filtered_df = filter_duty_data(df_duty, filter_date, filter_thana, filter_duty)
             
-            # डेटा को स्क्रीन पर लाइव दिखाना
             if not filtered_df.empty:
                 st.success(f"📊 **{filter_thana}** का दिनांक **{filter_date.strftime('%d-%m-%Y')}** का लाइव रिकॉर्ड [कुल: {len(filtered_df)} रिकॉर्ड]")
                 st.dataframe(filtered_df, use_container_width=True)
