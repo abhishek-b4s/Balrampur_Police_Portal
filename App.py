@@ -37,7 +37,7 @@ st.markdown("""
         max-width: 95% !important;
     }
 
-    /* पुलिस स्टाइल बटन */
+    /* पुलिस स्टाइल बटन - गहरा नीला, गोल्डन बॉर्डर और सफेद अक्षर */
     .stButton>button {
         background-color: #002147 !important;
         color: #ffffff !important;
@@ -54,7 +54,7 @@ st.markdown("""
         border-color: #ffffff !important;
     }
 
-    /* टैब्स की स्टाइलिंग */
+    /* टैब्स की स्टाइलिंग - खाकी वर्दी पर नीली और सुनहरी पट्टी */
     .stTabs [data-baseweb="tab-list"] {
         background-color: #002147 !important;
         padding: 8px !important;
@@ -72,11 +72,13 @@ st.markdown("""
         border-radius: 4px !important;
     }
 
+    /* हेडिंग्स - खाकी वर्दी पर गहरे नीले और लाल बॉर्डर के अक्षर */
     h1, h2, h3, h4 {
         color: #002147 !important;
         font-weight: bold !important;
     }
     
+    /* डेटा फ़्रेम/टेबल को बॉर्डर देना */
     [data-testid="stDataFrame"] {
         background-color: #ffffff !important;
         border: 3px solid #002147 !important;
@@ -84,11 +86,13 @@ st.markdown("""
         padding: 5px !important;
     }
 
+    /* इनपुट और सेलेक्ट बॉक्स के बॉर्डर्स को गहरा करना */
     .stTextInput>div>div>input, .stSelectbox>div>div>div, .stDateInput>div>div>input {
         border: 2px solid #002147 !important;
         border-radius: 6px !important;
     }
 
+    /* अलर्ट बॉक्स - पुलिस पेट्रोलिंग लाइट जैसा लाल और सुनहरा */
     .alert-box {
         background-color: #800000 !important;
         color: white !important;
@@ -116,7 +120,7 @@ DUTY_TYPES = [
     "सामान्य अवकाश", "मेडिकल अवकाश", "गैर हाजिर", "निलम्बित", "अन्य"
 ]
 
-# सुरक्षित लॉगिन क्रेडेंशियल्स
+# सुरक्षित लॉगिन क्रेडेंशियल्स (CUG नंबर्स एवं मास्टर आईडी)
 USER_CREDENTIALS = {
     "hq_master":  "hq@123", 
     "9454403022": "thana@3022",
@@ -167,7 +171,7 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user_role = None
 
-# 🛠️ सरल, सीधा और बेहद मजबूत फ़िल्टर लॉजिक
+# 🛠️ बिल्कुल सटीक और मजबूत मॉनिटरिंग फ़िल्टर लॉजिक
 def filter_duty_data(df, selected_date, selected_thana, selected_duty):
     if df.empty:
         return df
@@ -175,7 +179,7 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
     filtered_df = df.copy()
     filtered_df.columns = [str(c).strip() for c in filtered_df.columns]
     
-    # 1. थाना कॉलम फ़िल्टर (स्ट्रिंग मैचिंग)
+    # 1. थाना कॉलम फ़िल्टर
     if selected_thana and selected_thana != "सभी थाने":
         thana_col = None
         for c in filtered_df.columns:
@@ -183,12 +187,10 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
                 thana_col = c
                 break
         if thana_col:
-            # कोतवाली हटाकर सिर्फ मूल नाम से भी मैच करते हैं (जैसे 'नगर' या 'देहात')
+            filtered_df[thana_col] = filtered_df[thana_col].astype(str).str.strip()
             short_name = selected_thana.replace("कोतवाली", "").strip()
-            filtered_df = filtered_df[
-                filtered_df[thana_col].astype(str).str.contains(selected_thana, case=False, na=False) |
-                filtered_df[thana_col].astype(str).str.contains(short_name, case=False, na=False)
-            ]
+            thana_mask = filtered_df[thana_col].apply(lambda x: selected_thana in str(x) or short_name in str(x) or str(x) in selected_thana)
+            filtered_df = filtered_df[thana_mask]
 
     # 2. ड्यूटी का प्रकार फ़िल्टर
     if selected_duty and selected_duty != "सभी ड्यूटी":
@@ -200,15 +202,12 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
         if duty_col:
             filtered_df = filtered_df[filtered_df[duty_col].astype(str).str.contains(str(selected_duty), case=False, na=False)]
 
-    # 3. 🎯 सीधा तारीख फ़िल्टर (बिना किसी जटिल लूप के सीधा स्ट्रिंग मैच)
-    d_dash = selected_date.strftime("%d-%m-%Y")       # 23-05-2026
-    d_slash = selected_date.strftime("%d/%m/%Y")      # 23/05/2026
-    d_y_dash = selected_date.strftime("%Y-%m-%d")     # 2026-05-23
+    # 3. स्मार्ट तारीख फ़िल्टर (गूगल शीट के टाइमस्टैम्प/स्ट्रिंग सर्च के अनुकूल)
+    d_dash = selected_date.strftime("%d-%m-%Y")       # 24-05-2026
+    d_slash = selected_date.strftime("%d/%m/%Y")      # 24/05/2026
+    d_y_dash = selected_date.strftime("%Y-%m-%d")     # 2026-05-24
+    d_short_slash = selected_date.strftime("%e/%m/%Y").strip() # 24/5/2026 या 5/5/2026 जैसी स्थिति के लिए
     
-    # सिंगल डिजिट डेट्स के लिए (जैसे 23/5/2026 या 5/5/2026)
-    d_short_slash = f"{int(selected_date.strftime('%d'))}/{int(selected_date.strftime('%m'))}/{selected_date.strftime('%Y')}"
-    d_short_dash = f"{int(selected_date.strftime('%d'))}-{int(selected_date.strftime('%m'))}-{selected_date.strftime('%Y')}"
-
     date_col = None
     for c in filtered_df.columns:
         if 'तारीख' in c or 'दिनांक' in c or 'date' in c.lower() or 'timestamp' in c.lower() or 'time' in c.lower():
@@ -216,14 +215,10 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
             break
             
     if date_col and not filtered_df.empty:
-        # अगर डेटा में इनमें से कोई भी एक फॉर्मेट मैच हो गया, तो वह रो सेलेक्ट हो जाएगी
-        filtered_df = filtered_df[
-            filtered_df[date_col].astype(str).str.contains(d_dash, na=False) |
-            filtered_df[date_col].astype(str).str.contains(d_slash, na=False) |
-            filtered_df[date_col].astype(str).str.contains(d_y_dash, na=False) |
-            filtered_df[date_col].astype(str).str.contains(d_short_slash, na=False) |
-            filtered_df[date_col].astype(str).str.contains(d_short_dash, na=False)
-        ]
+        filtered_df[date_col] = filtered_df[date_col].astype(str).str.strip()
+        # 'in str(x)' का उपयोग किया है ताकि अगर तारीख के साथ टाइम (Timestamp) भी जुड़ा हो, तो भी मैच हो जाए
+        date_mask = filtered_df[date_col].apply(lambda x: d_dash in str(x) or d_slash in str(x) or d_y_dash in str(x) or d_short_slash in str(x))
+        filtered_df = filtered_df[date_mask]
             
     return filtered_df
 
@@ -238,7 +233,7 @@ if not st.session_state.logged_in:
     with col_logo:
         st.image(SP_PHOTO_URL, width=135, use_container_width=False)
     with col_title:
-        st.markdown("<h1 style='color:#002147; margin-bottom:2px;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:#002147; margin-bottom:2px;'>🚨 उत्तर Pradesh पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='margin-top:0px; color:#002147;'>दैनिक ड्यूटी मैनेजमेंट फीडिंग एवं मॉनिटरिंग पोर्टल</h3>", unsafe_allow_html=True)
         st.markdown("<b style='color:#800000;'>'सुरक्षा आपकी, संकल्प हमारा' - पुलिस अधीक्षक कार्यालय, बलरामपुर</b>", unsafe_allow_html=True)
         
@@ -344,7 +339,7 @@ else:
             with col3:
                 filter_duty = st.selectbox("ड्यूटी का प्रकार", ["सभी ड्यूटी"] + DUTY_TYPES, key="hq_duty")
             
-            # 🔍 लाइव सर्च बटन
+            # 🔍 डिमांड के अनुसार लगाया गया मुख्य 'सर्च बटन'
             if st.button("🔍 लाइव डेटा सर्च / रीफ्रेश करें", type="primary", use_container_width=True):
                 try:
                     df_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
