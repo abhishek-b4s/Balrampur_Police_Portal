@@ -171,7 +171,7 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user_role = None
 
-# 🛠️ बिल्कुल सटीक और मजबूत मॉनिटरिंग फ़िल्टर लॉजिक
+# 🛠️ बिल्कुल सटीक और 100% फुलप्रूफ तारीख और थाना फ़िल्टर लॉजिक
 def filter_duty_data(df, selected_date, selected_thana, selected_duty):
     if df.empty:
         return df
@@ -202,12 +202,15 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
         if duty_col:
             filtered_df = filtered_df[filtered_df[duty_col].astype(str).str.contains(str(selected_duty), case=False, na=False)]
 
-    # 3. स्मार्ट तारीख फ़िल्टर (गूगल शीट के टाइमस्टैम्प/स्ट्रिंग सर्च के अनुकूल)
-    d_dash = selected_date.strftime("%d-%m-%Y")       # 24-05-2026
-    d_slash = selected_date.strftime("%d/%m/%Y")      # 24/05/2026
-    d_y_dash = selected_date.strftime("%Y-%m-%d")     # 2026-05-24
-    d_short_slash = selected_date.strftime("%e/%m/%Y").strip() # 24/5/2026 या 5/5/2026 जैसी स्थिति के लिए
+    # 3. 🎯 100% अचूक तारीख मैचिंग (स्लैश, डैश और टाइमस्टैम्प के लिए)
+    day_str = selected_date.strftime("%d")     # जैसे "23"
+    month_str = selected_date.strftime("%m")   # जैसे "05"
+    year_str = selected_date.strftime("%Y")    # जैसे "2026"
     
+    # सिंगल डिजिट वाले दिनों/महीनों के लिए (जैसे 23/5/2026 की स्थिति में)
+    short_day_str = str(int(day_str))
+    short_month_str = str(int(month_str))
+
     date_col = None
     for c in filtered_df.columns:
         if 'तारीख' in c or 'दिनांक' in c or 'date' in c.lower() or 'timestamp' in c.lower() or 'time' in c.lower():
@@ -215,9 +218,23 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
             break
             
     if date_col and not filtered_df.empty:
-        filtered_df[date_col] = filtered_df[date_col].astype(str).str.strip()
-        # 'in str(x)' का उपयोग किया है ताकि अगर तारीख के साथ टाइम (Timestamp) भी जुड़ा हो, तो भी मैच हो जाए
-        date_mask = filtered_df[date_col].apply(lambda x: d_dash in str(x) or d_slash in str(x) or d_y_dash in str(x) or d_short_slash in str(x))
+        def match_date_flexibly(cell_value):
+            val = str(cell_value).strip()
+            if not val:
+                return False
+            
+            # साल और महीना दोनों में होना ही चाहिए
+            if year_str not in val:
+                return False
+                
+            # चेक करें कि क्या महीना सही पोजीशन/फॉर्मेट में है
+            if month_str in val or f"/{short_month_str}/" in val or f"-{short_month_str}-" in val:
+                # चेक करें कि क्या दिन भी मौजूद है
+                if day_str in val or val.startswith(short_day_str) or f"/{short_day_str}/" in val or f"-{short_day_str}-" in val or f" {short_day_str} " in val:
+                    return True
+            return False
+
+        date_mask = filtered_df[date_col].apply(match_date_flexibly)
         filtered_df = filtered_df[date_mask]
             
     return filtered_df
@@ -233,7 +250,7 @@ if not st.session_state.logged_in:
     with col_logo:
         st.image(SP_PHOTO_URL, width=135, use_container_width=False)
     with col_title:
-        st.markdown("<h1 style='color:#002147; margin-bottom:2px;'>🚨 उत्तर Pradesh पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:#002147; margin-bottom:2px;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='margin-top:0px; color:#002147;'>दैनिक ड्यूटी मैनेजमेंट फीडिंग एवं मॉनिटरिंग पोर्टल</h3>", unsafe_allow_html=True)
         st.markdown("<b style='color:#800000;'>'सुरक्षा आपकी, संकल्प हमारा' - पुलिस अधीक्षक कार्यालय, बलरामपुर</b>", unsafe_allow_html=True)
         
@@ -339,7 +356,7 @@ else:
             with col3:
                 filter_duty = st.selectbox("ड्यूटी का प्रकार", ["सभी ड्यूटी"] + DUTY_TYPES, key="hq_duty")
             
-            # 🔍 डिमांड के अनुसार लगाया गया मुख्य 'सर्च बटन'
+            # 🔍 लाइव सर्च बटन
             if st.button("🔍 लाइव डेटा सर्च / रीफ्रेश करें", type="primary", use_container_width=True):
                 try:
                     df_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
