@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# कैशे क्लियर ताकि डेटा हमेशा लाइव गूगल शीट से फ्रेश लोड हो
+# कैशे क्लियर ताकि पुराना डेटा मेमोरी में न फंसा रहे
 st.cache_data.clear()
 
 # 👮 पुलिसिया कलर पैलेट: खाकी, गहरा नीला (#002147), लाल (#800000)
@@ -171,7 +171,7 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user_role = None
 
-# 🛠️ बिल्कुल सटीक और सुरक्षित मॉनिटरिंग फ़िल्टर लॉजिक
+# 🛠️ बिल्कुल सटीक और मजबूत मॉनिटरिंग फ़िल्टर लॉजिक
 def filter_duty_data(df, selected_date, selected_thana, selected_duty):
     if df.empty:
         return df
@@ -202,11 +202,11 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
         if duty_col:
             filtered_df = filtered_df[filtered_df[duty_col].astype(str).str.contains(str(selected_duty), case=False, na=False)]
 
-    # 3. स्मार्ट तारीख फ़िल्टर (मजबूत लॉजिक के साथ)
-    d_dash = selected_date.strftime("%d-%m-%Y")
-    d_slash = selected_date.strftime("%d/%m/%Y")
-    d_y_dash = selected_date.strftime("%Y-%m-%d")
-    d_short_slash = selected_date.strftime("%e/%m/%Y").strip()
+    # 3. स्मार्ट तारीख फ़िल्टर (गूगल शीट के टाइमस्टैम्प/स्ट्रिंग सर्च के अनुकूल)
+    d_dash = selected_date.strftime("%d-%m-%Y")       # 24-05-2026
+    d_slash = selected_date.strftime("%d/%m/%Y")      # 24/05/2026
+    d_y_dash = selected_date.strftime("%Y-%m-%d")     # 2026-05-24
+    d_short_slash = selected_date.strftime("%e/%m/%Y").strip() # 24/5/2026 या 5/5/2026 जैसी स्थिति के लिए
     
     date_col = None
     for c in filtered_df.columns:
@@ -216,13 +216,13 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
             
     if date_col and not filtered_df.empty:
         filtered_df[date_col] = filtered_df[date_col].astype(str).str.strip()
-        # यहाँ चेक कर रहे हैं कि सिलेक्टेड तारीख स्ट्रिंग का हिस्सा है या नहीं (Timestamp को हैंडल करने के लिए)
+        # 'in str(x)' का उपयोग किया है ताकि अगर तारीख के साथ टाइम (Timestamp) भी जुड़ा हो, तो भी मैच हो जाए
         date_mask = filtered_df[date_col].apply(lambda x: d_dash in str(x) or d_slash in str(x) or d_y_dash in str(x) or d_short_slash in str(x))
         filtered_df = filtered_df[date_mask]
             
     return filtered_df
 
-# 📸 यूज़र द्वारा प्रदान किया गया एसपी सर की फोटो का नया लाइव यूआरएल
+# 📸 एसपी सर की फोटो का लाइव यूआरएल
 SP_PHOTO_URL = "https://uppolice.gov.in/en/officerprofile?transid=2701&slugName=fatehgarh"
 
 # =============================================================
@@ -233,7 +233,7 @@ if not st.session_state.logged_in:
     with col_logo:
         st.image(SP_PHOTO_URL, width=135, use_container_width=False)
     with col_title:
-        st.markdown("<h1 style='color:#002147; margin-bottom:2px;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:#002147; margin-bottom:2px;'>🚨 उत्तर Pradesh पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='margin-top:0px; color:#002147;'>दैनिक ड्यूटी मैनेजमेंट फीडिंग एवं मॉनिटरिंग पोर्टल</h3>", unsafe_allow_html=True)
         st.markdown("<b style='color:#800000;'>'सुरक्षा आपकी, संकल्प हमारा' - पुलिस अधीक्षक कार्यालय, बलरामपुर</b>", unsafe_allow_html=True)
         
@@ -282,7 +282,7 @@ else:
             
         st.markdown("---")
         
-        # डायनेमिक टाइमस्टैम्प जनरेशन ताकि डेटा कैश न हो और हर बार लाइव लोड हो
+        # डायनेमिक टाइमस्टैम्प ताकि गूगल शीट का पुराना डेटा कैश न हो
         live_stamp = random.randint(100000, 999999)
         DYNAMIC_DUTY_SHEET_URL = f"https://docs.google.com/spreadsheets/d/1WFvkW8CXYIN_bKJWN5m7Ieh814LlFLjYqZVpjivJhdA/export?format=csv&gid=127153860&cache_bypass={live_stamp}&t={live_stamp}"
         DYNAMIC_MASTER_SHEET_URL = f"https://docs.google.com/spreadsheets/d/1WFvkW8CXYIN_bKJWN5m7Ieh814LlFLjYqZVpjivJhdA/export?format=csv&gid=0&cache_bypass={live_stamp}&t={live_stamp}"
@@ -327,14 +327,6 @@ else:
 
         st.header("📊 मुख्यालय मॉनिटरिंग डैशबोर्ड (Master Page)")
         
-        try:
-            df_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
-            df_duty.columns = [str(c).strip() for c in df_duty.columns]
-            df_duty = df_duty.fillna("").astype(str)
-        except Exception as e:
-            st.error(f"⚠️ मुख्य डेटाबेस से संपर्क नहीं हो पा रहा है: {e}")
-            df_duty = pd.DataFrame()
-            
         tab1, tab2 = st.tabs(["📋 लाइव ड्यूटी मॉनिटर", "👮 जनपद के समस्त पुलिसकर्मियों का विवरण"])
         
         with tab1:
@@ -347,36 +339,47 @@ else:
             with col3:
                 filter_duty = st.selectbox("ड्यूटी का प्रकार", ["सभी ड्यूटी"] + DUTY_TYPES, key="hq_duty")
             
-            # फ़िल्टर फ़ंक्शन को फ्रेश डेटा के साथ रन करना
-            filtered_df = filter_duty_data(df_duty, filter_date, filter_thana, filter_duty)
-            
-            if not filtered_df.empty:
-                st.success(f"📊 **{filter_thana}** का दिनांक **{filter_date.strftime('%d-%m-%Y')}** का लाइव रिकॉर्ड [कुल: {len(filtered_df)} रिकॉर्ड]")
-                st.dataframe(filtered_df, use_container_width=True)
+            # 🔍 डिमांड के अनुसार लगाया गया मुख्य 'सर्च बटन'
+            if st.button("🔍 लाइव डेटा सर्च / रीफ्रेश करें", type="primary", use_container_width=True):
+                try:
+                    df_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
+                    df_duty.columns = [str(c).strip() for c in df_duty.columns]
+                    df_duty = df_duty.fillna("").astype(str)
+                    
+                    filtered_df = filter_duty_data(df_duty, filter_date, filter_thana, filter_duty)
+                    
+                    if not filtered_df.empty:
+                        st.success(f"📊 **{filter_thana}** का दिनांक **{filter_date.strftime('%d-%m-%Y')}** का लाइव रिकॉर्ड [कुल: {len(filtered_df)} रिकॉर्ड]")
+                        st.dataframe(filtered_df, use_container_width=True)
+                    else:
+                        st.warning(f"⚠️ चयनित तारीख ({filter_date.strftime('%d-%m-%Y')}) और चयनित थाने ({filter_thana}) में कोई ड्यूटी रिकॉर्ड उपलब्ध नहीं मिला।")
+                except Exception as e:
+                    st.error(f"⚠️ मुख्य डेटाबेस से लाइव सिंक फेल हुआ: {e}")
             else:
-                st.warning(f"⚠️ चयनित तारीख ({filter_date.strftime('%d-%m-%Y')}) और चयनित थाने ({filter_thana}) में कोई ड्यूटी रिकॉर्ड उपलब्ध नहीं मिला।")
+                st.info("💡 कृपया ऊपर फ़िल्टर सेट करें और लाइव रिकॉर्ड देखने के लिए 'डेटा सर्च' बटन दबाएं।")
 
         with tab2:
             st.subheader("🗂️ थाना वार पुलिसकर्मी सूची (मास्टर रिकॉर्ड)")
             search_master_thana = st.selectbox("थाना चुनें", ["जनपद के सभी थाने"] + THANA_LIST)
             
-            try:
-                df_master = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
-                df_master.columns = [str(c).strip() for c in df_master.columns]
-                df_master = df_master.fillna("").astype(str)
-                
-                if search_master_thana != "जनपद के सभी थाने":
-                    thana_col_m = next((c for c in df_master.columns if 'थाना' in c or 'thana' in c.lower()), None)
-                    if thana_col_m:
-                        filtered_master = df_master[df_master[thana_col_m].str.strip() == search_master_thana.strip()]
+            if st.button("🔍 मास्टर सूची लोड करें", key="master_search_btn", use_container_width=True):
+                try:
+                    df_master = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
+                    df_master.columns = [str(c).strip() for c in df_master.columns]
+                    df_master = df_master.fillna("").astype(str)
+                    
+                    if search_master_thana != "जनपद के सभी थाने":
+                        thana_col_m = next((c for c in df_master.columns if 'थाना' in c or 'thana' in c.lower()), None)
+                        if thana_col_m:
+                            filtered_master = df_master[df_master[thana_col_m].str.strip() == search_master_thana.strip()]
+                        else:
+                            filtered_master = df_master[df_master.apply(lambda r: r.str.contains(search_master_thana)).any(axis=1)]
                     else:
-                        filtered_master = df_master[df_master.apply(lambda r: r.str.contains(search_master_thana)).any(axis=1)]
-                else:
-                    filtered_master = df_master.copy()
-                
-                st.dataframe(filtered_master, use_container_width=True)
-            except Exception as e:
-                st.error(f"मास्टर सूची लोड करने में त्रुटि: {e}")
+                        filtered_master = df_master.copy()
+                    
+                    st.dataframe(filtered_master, use_container_width=True)
+                except Exception as e:
+                    st.error(f"मास्टर सूची लोड करने में त्रुटि: {e}")
 
     # =============================================================
     # मिकैनिज्म ब: केवल थानों के लिए (फीडिंग फॉर्म एवं लाइव व्यू दोनों सक्रिय)
@@ -394,7 +397,7 @@ else:
 
         with thana_tab1:
             st.header(f"📝 दैनिक ड्यूटी एवं अवकाश फीडिंग फॉर्म - {assigned_thana}")
-            selected_thana = st.selectbox("आपका थाना (🔒锁)", [assigned_thana], disabled=True, key="thana_form_lock")
+            selected_thana = st.selectbox("आपका थाना (🔒 लॉक)", [assigned_thana], disabled=True, key="thana_form_lock")
             
             staff_options = ["-- चुनें / Select Staff --"]
             staff_dict = {}
@@ -472,7 +475,7 @@ else:
                         }
                         try:
                             res = requests.post(form_url, data=payload)
-                            st.success(f"✔️ {name} का记录 ({duty_submission_text}) सफलतापूर्वक दर्ज हो गया है।")
+                            st.success(f"✔️ {name} का रिकॉर्ड ({duty_submission_text}) सफलतापूर्वक दर्ज हो गया है।")
                             st.balloons()
                         except:
                             st.error("कनेक्शन त्रुटि! फॉर्म सबमिट नहीं हो सका।")
