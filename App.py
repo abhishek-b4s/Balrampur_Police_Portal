@@ -267,13 +267,19 @@ else:
                 
                 for _, row in df_thana_staff.iterrows():
                     col_list = list(df_all_staff.columns)
-                    pno_col = next((c for c in col_list if 'pno' in c.lower() or 'नंबर' in c or 'न०' in c), col_list[0])
-                    name_col = next((c for c in col_list if 'नाम' in c.lower() or 'name' in c.lower()), col_list[1])
-                    rank_col = next((c for c in col_list if 'पद' in c or 'rank' in c.lower() or 'पदनाम' in c), None)
+                    pno_col = next((c for c in col_list if any(x in c.lower() for x in ['pno', 'नंबर', 'न०', 'पेनो'])), col_list[0])
+                    name_col = next((c for c in col_list if any(x in c.lower() for x in ['नाम', 'name', 'कर्मी'])), col_list[1])
+                    
+                    # 🛠️ पदनाम कॉलम ढूंढने का सबसे मजबूत लॉजिक (यहाँ फिक्स किया गया है)
+                    rank_col = next((c for c in col_list if any(x in c.lower() for x in ['पद', 'rank', 'designation', 'ओहदा', 'status'])), None)
                     
                     pno_val = str(row[pno_col]).split('.')[0]
-                    # यहाँ वास्तविक पदनाम निकाला जा रहा है, अगर खाली है तभी डिफ़ॉल्ट 'आरक्षी' लगेगा
-                    actual_rank = str(row[rank_col]).strip() if (rank_col and str(row[rank_col]).strip() != "") else "आरक्षी"
+                    
+                    # गूगल शीट से वास्तविक पदनाम उठाना
+                    if rank_col and str(row[rank_col]).strip() != "":
+                        actual_rank = str(row[rank_col]).strip()
+                    else:
+                        actual_rank = "आरक्षी"  # सिर्फ डेटा न होने पर ही आरक्षी आएगा
                     
                     display_text = f"{pno_val} | {row[name_col]} | {actual_rank}"
                     staff_options.append(display_text)
@@ -293,17 +299,15 @@ else:
             duty_type = st.selectbox("ड्यूटी / अवकाश का प्रकार", DUTY_TYPES, key="dynamic_duty_type_select")
             
             with st.form("submission_form", clear_on_submit=True):
-                # फ़ॉर्म के अंदर वेरिएबल्स को सुरक्षित रखने के लिए st.hidden_input या सीधे डिस्प्ले का उपयोग किया गया है
                 st.write(f"चयनित पद/नाम: **{rank} {name} ({pno})**")
                 
                 if st.form_submit_button("🚀 रिकॉर्ड सबमिट करें", type="primary", use_container_width=True):
-                    # फ़ॉर्म सबमिशन लॉजिक में यह सुनिश्चित किया गया है कि वास्तविक सिलेक्टेड रैंक ही पास हो
                     if name and pno and rank:
                         form_url = "https://docs.google.com/forms/d/e/1FAIpQLSecM8onnA6CMYAtkzIGcRhxSAfnUtdKd9NM8Jxxv4bzajHovA/formResponse"
                         payload = {
                             "entry.154343115": pno, 
                             "entry.2122326148": name, 
-                            "entry.1503406512": rank, # अब यहाँ मास्टर शीट की सही रैंक जाएगी
+                            "entry.1503406512": rank, # अब वास्तविक पदनाम (जैसे: उपनिरीक्षक, मुख्य आरक्षी) ही फॉर्म में जाएगा
                             "entry.926857669": assigned_thana, 
                             "entry.88588834": duty_type
                         }
