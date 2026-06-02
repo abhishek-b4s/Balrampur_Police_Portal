@@ -115,12 +115,10 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
     # 1. ⏱️ टाइमस्टैम्प से केवल तारीख निकालकर मैच करना (ताकि समय रुकावट न बने)
     if date_col:
         try:
-            # गूगल टाइमस्टैम्प को कॉमन डेट में बदलकर केवल तारीख का हिस्सा मैच करना
             filtered_df['parsed_date_internal'] = pd.to_datetime(filtered_df[date_col], errors='coerce').dt.date
             filtered_df = filtered_df[filtered_df['parsed_date_internal'] == selected_date]
             filtered_df = filtered_df.drop(columns=['parsed_date_internal'])
         except Exception:
-            # अगर पुराना तरीका फेल हो तो स्ट्रिंग स्लाइसिंग मैच
             d_dash = selected_date.strftime("%d-%m-%Y")
             d_slash = selected_date.strftime("%d/%m/%Y")
             d_short_slash = f"{int(selected_date.strftime('%d'))}/{int(selected_date.strftime('%m'))}/{selected_date.strftime('%Y')}"
@@ -228,7 +226,6 @@ else:
                                 break
                         
                         if thana_col_m:
-                            # 🎯 यहाँ सटीक रूप से चुने गए थाने का ही मिलान होगा (उतरौला वाला एरर फिक्स)
                             short_search_name = search_master_thana.replace("कोतवाली", "").strip()
                             filtered_master = df_master[df_master[thana_col_m].str.contains(short_search_name, case=False, na=False)]
                         else:
@@ -272,18 +269,22 @@ else:
                     col_list = list(df_all_staff.columns)
                     pno_col = next((c for c in col_list if 'pno' in c.lower() or 'नंबर' in c or 'न०' in c), col_list[0])
                     name_col = next((c for c in col_list if 'नाम' in c.lower() or 'name' in c.lower()), col_list[1])
-                    rank_col = next((c for c in col_list if 'पद' in c or 'rank' in c.lower()), None)
+                    rank_col = next((c for c in col_list if 'पद' in c or 'rank' in c.lower() or 'पदनाम' in c), None)
                     
                     pno_val = str(row[pno_col]).split('.')[0]
-                    display_text = f"{pno_val} | {row[name_col]} | {row[rank_col] if rank_col else ''}"
+                    # यहाँ वास्तविक पदनाम निकाला जा रहा है, अगर खाली है तभी डिफ़ॉल्ट 'आरक्षी' लगेगा
+                    actual_rank = str(row[rank_col]).strip() if (rank_col and str(row[rank_col]).strip() != "") else "आरक्षी"
+                    
+                    display_text = f"{pno_val} | {row[name_col]} | {actual_rank}"
                     staff_options.append(display_text)
-                    staff_dict[display_text] = {"pno": pno_val, "name": row[name_col], "rank": row[rank_col] if rank_col else "आरक्षी"}
-            except Exception: pass
+                    staff_dict[display_text] = {"pno": pno_val, "name": row[name_col], "rank": actual_rank}
+            except Exception as e: 
+                pass
 
             selected_staff = st.selectbox("सूची से कर्मचारी चुनें", staff_options, key="thana_staff_select")
             
             pno, name, rank = "", "", ""
-            if selected_staff != "-- चुनें / Select Staff --":
+            if selected_staff != "-- चुनें / Select Staff --" and selected_staff in staff_dict:
                 pno = staff_dict[selected_staff]["pno"]
                 name = staff_dict[selected_staff]["name"]
                 rank = staff_dict[selected_staff]["rank"]
@@ -292,21 +293,27 @@ else:
             duty_type = st.selectbox("ड्यूटी / अवकाश का प्रकार", DUTY_TYPES, key="dynamic_duty_type_select")
             
             with st.form("submission_form", clear_on_submit=True):
+                # फ़ॉर्म के अंदर वेरिएबल्स को सुरक्षित रखने के लिए st.hidden_input या सीधे डिस्प्ले का उपयोग किया गया है
                 st.write(f"चयनित पद/नाम: **{rank} {name} ({pno})**")
                 
                 if st.form_submit_button("🚀 रिकॉर्ड सबमिट करें", type="primary", use_container_width=True):
-                    if name and pno:
+                    # फ़ॉर्म सबमिशन लॉजिक में यह सुनिश्चित किया गया है कि वास्तविक सिलेक्टेड रैंक ही पास हो
+                    if name and pno and rank:
                         form_url = "https://docs.google.com/forms/d/e/1FAIpQLSecM8onnA6CMYAtkzIGcRhxSAfnUtdKd9NM8Jxxv4bzajHovA/formResponse"
                         payload = {
-                            "entry.154343115": pno, "entry.2122326148": name, 
-                            "entry.1503406512": rank, "entry.926857669": assigned_thana, 
+                            "entry.154343115": pno, 
+                            "entry.2122326148": name, 
+                            "entry.1503406512": rank, # अब यहाँ मास्टर शीट की सही रैंक जाएगी
+                            "entry.926857669": assigned_thana, 
                             "entry.88588834": duty_type
                         }
                         try:
-                            requests.post(form_url, data=payload)
-                            st.success(f"✔️ {name} का रिकॉर्ड दर्ज हो गया है!")
-                        except: st.error("सबमिशन फेल हुआ।")
-                    else: st.error("❌ कृपया कर्मचारी चुनें!")
+                            res = requests.post(form_url, data=payload)
+                            st.success(f"✔️ {rank} {name} का रिकॉर्ड सफलतापूर्वक दर्ज हो गया है!")
+                        except: 
+                            st.error("सबमिशन फेल हुआ। कृपया इंटरनेट कनेक्शन जांचें।")
+                    else:
+                        st.error("❌ कृपया फॉर्म सबमिट करने से पहले ऊपर सूची से कर्मचारी चुनें!")
 
         with thana_tab2:
             thana_filter_date = st.date_input("तारीख चुनें", datetime.now().date(), key="th_view_d")
@@ -317,4 +324,5 @@ else:
                     
                     st.success(f"📊 केवल **{assigned_thana}** का लाइव रिकॉर्ड [कुल: {len(final_thana_df)} रिकॉर्ड]:")
                     st.dataframe(final_thana_df, use_container_width=True)
-                except Exception as e: st.error(str(e))
+                except Exception as e: 
+                    st.error(str(e))
