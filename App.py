@@ -37,6 +37,16 @@ st.markdown("""
         font-weight: bold !important;
     }
     [data-testid="stDataFrame"] { background-color: #ffffff !important; border: 3px solid #002147 !important; }
+    
+    /* समरी कार्ड्स के लिए विशेष डिज़ाइन */
+    .metric-card {
+        background-color: #ffffff;
+        border-left: 5px solid #002147;
+        border-radius: 6px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -149,7 +159,7 @@ else:
     # === मुख्यालय मास्टर व्यू ===
     if st.session_state.user_role == "hq_master":
         st.header("📊 मुख्यालय मॉनिटरिंग डैशबोर्ड (Master Page)")
-        tab1, tab2 = st.tabs(["📋 लाइव ड्यूटी मॉनिटर", "👮 समस्त थानों के कर्मी विवरण"])
+        tab1, tab2 = st.tabs(["📋 लाइव ड्यूटी मॉनिटर", "👮 कर्मी विवरण एवं स्मार्ट सर्च"])
         
         with tab1:
             col1, col2, col3 = st.columns(3)
@@ -162,7 +172,29 @@ else:
                     df_all_duties = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
                     filtered_df = filter_duty_data(df_all_duties, filter_date, filter_thana, filter_duty)
                     
+                    # 📊 बिंदु 1: लाइव संख्या गणना डैशबोर्ड (Summary Metrics)
                     if not filtered_df.empty:
+                        filtered_df.columns = [str(c).strip() for c in filtered_df.columns]
+                        duty_col_check = next((c for c in filtered_df.columns if any(x in c.lower() for x in ['ड्यूटी', 'duty'])), None)
+                        
+                        if duty_col_check:
+                            duty_series = filtered_df[duty_col_check].astype(str)
+                            
+                            total_count = len(filtered_df)
+                            leave_count = duty_series.str.contains("अवकाश").sum()
+                            absent_count = duty_series.str.contains("गैर हाजिर").sum()
+                            sus_count = duty_series.str.contains("निलम्बित").sum()
+                            active_duty = total_count - (leave_count + absent_count + sus_count)
+                            
+                            # स्क्रीन पर डैशबोर्ड ग्रिड प्रदर्शित करना
+                            m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns(5)
+                            m_col1.markdown(f"<div class='metric-card'><h5 style='margin:0;color:#002147;'>कुल दर्ज कर्मी</h5><h2 style='margin:5px 0;color:#002147;'>{total_count}</h2></div>", unsafe_allow_html=True)
+                            m_col2.markdown(f"<div class='metric-card' style='border-left-color:#28a745;'><h5 style='margin:0;color:#28a745;'>सक्रिय ड्यूटी पर</h5><h2 style='margin:5px 0;color:#28a745;'>{active_duty}</h2></div>", unsafe_allow_html=True)
+                            m_col3.markdown(f"<div class='metric-card' style='border-left-color:#ffc107;'><h5 style='margin:0;color:#ffc107;'>अवकाश पर</h5><h2 style='margin:5px 0;color:#ffc107;'>{leave_count}</h2></div>", unsafe_allow_html=True)
+                            m_col4.markdown(f"<div class='metric-card' style='border-left-color:#dc3545;'><h5 style='margin:0;color:#dc3545;'>गैर हाजिर</h5><h2 style='margin:5px 0;color:#dc3545;'>{absent_count}</h2></div>", unsafe_allow_html=True)
+                            m_col5.markdown(f"<div class='metric-card' style='border-left-color:#6c757d;'><h5 style='margin:0;color:#6c757d;'>निलम्बित</h5><h2 style='margin:5px 0;color:#6c757d;'>{sus_count}</h2></div>", unsafe_allow_html=True)
+                            st.markdown("<br>", unsafe_allow_html=True)
+
                         filtered_df = filtered_df.reset_index(drop=True)
                         filtered_df.index = filtered_df.index + 1
                         filtered_df.index.name = "क्रम सं०"
@@ -172,19 +204,36 @@ else:
                 except Exception as e: st.error(f"कनेक्शन फेल: {e}")
 
         with tab2:
-            search_master_thana = st.selectbox("थाना चुनें", ["जनपद के सभी थाने"] + THANA_LIST, key="m_select")
-            if st.button("🔍 मास्टर सूची लोड करें", use_container_width=True):
+            # 🔍 बिंदु 2: स्मार्ट सर्च (PNO, नाम और थाना फ़िल्टर)
+            st.subheader("🔍 कर्मियों की खोज (स्मार्ट सर्च इंजन)")
+            sc1, sc2, sc3 = st.columns([2, 2, 2])
+            with sc1: search_master_thana = st.selectbox("थाना अनुसार फ़िल्टर", ["जनपद के सभी थाने"] + THANA_LIST, key="m_select")
+            with sc2: search_pno = st.text_input("PNO नंबर से खोजें (Exact/Partial)", "").strip()
+            with sc3: search_name = st.text_input("कर्मचारी के नाम से खोजें", "").strip()
+            
+            if st.button("🔍 मास्टर सूची लोड / सर्च करें", use_container_width=True):
                 try:
                     df_master = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
+                    df_master.columns = [str(c).strip() for c in df_master.columns]
+                    
+                    # थाना फ़िल्टरेशन
                     if search_master_thana != "जनपद के सभी थाने":
-                        df_master.columns = [str(c).strip() for c in df_master.columns]
                         df_master = df_master[df_master.iloc[:, 4].astype(str).str.strip() == search_master_thana.strip()]
+                    
+                    # PNO फ़िल्टरेशन (कॉलम इंडेक्स 1)
+                    if search_pno:
+                        df_master = df_master[df_master.iloc[:, 1].astype(str).str.contains(search_pno, case=False, na=False)]
+                        
+                    # नाम फ़िल्टरेशन (कॉलम इंडेक्स 2)
+                    if search_name:
+                        df_master = df_master[df_master.iloc[:, 2].astype(str).str.contains(search_name, case=False, na=False)]
                     
                     if not df_master.empty:
                         df_master = df_master.reset_index(drop=True)
                         df_master.index = df_master.index + 1
                         df_master.index.name = "क्रम सं०"
                         
+                    st.success(f"🔍 खोज के आधार पर {len(df_master)} कर्मियों का विवरण मिला।")
                     st.dataframe(df_master, use_container_width=True)
                 except Exception as e: st.error(str(e))
 
@@ -232,13 +281,13 @@ else:
             is_leave = "अवकाश" in duty_type
             is_absent_or_sus = duty_type in ["गैर हाजिर", "निलम्बित"]
             
-            # 🎯 [सुधार] फॉर्म की शुरुआत यहाँ से होगी, ताकि सबमिट बटन गायब न हो
+            # फॉर्म की शुरुआत
             with st.form("sub_form", clear_on_submit=True):
                 
                 leave_start = datetime.now().date()
                 leave_end = datetime.now().date()
                 
-                # कंडीशन 1: अगर किसी भी प्रकार का अवकाश चुना गया हो (दो डेट बॉक्स)
+                # कंडीशन 1: अगर अवकाश हो
                 if is_leave:
                     st.info(f"ℹ️ {duty_type} की समयावधि दर्ज करें:")
                     col_start, col_end = st.columns(2)
@@ -250,10 +299,13 @@ else:
                     if leave_start > leave_end:
                         st.error("❌ त्रुटि: प्रारम्भ तिथि, समाप्ति तिथि से बाद की नहीं हो सकती!")
                         
-                # कंडीशन 2: अगर गैर हाजिर या निलम्बित चुना गया हो (सिर्फ एक डेट बॉक्स)
+                # कंडीशन 2: अगर गैर हाजिर या निलम्बित हो
                 elif is_absent_or_sus:
                     st.info(f"ℹ️ {duty_type} होने की तिथि दर्ज करें:")
                     leave_start = st.date_input("प्रारम्भ तिथि / किस दिनांक से (From Date)", datetime.now().date(), key="abs_st")
+                
+                # 📝 बिंदु 3: ड्यूटी रिमार्क / विशेष टिप्पणी बॉक्स (Optional)
+                duty_remark = st.text_input("📋 ड्यूटी रिमार्क / विशेष टिप्पणी (जैसे: कोर्ट का नाम, वीआईपी रूट या आदेश संख्या - ऐच्छिक)", "").strip()
                 
                 # फॉर्म का मुख्य सबमिट बटन
                 if st.form_submit_button("🚀 ड्यूटी सबमिट करें", type="primary", use_container_width=True):
@@ -287,11 +339,16 @@ else:
                         else:
                             form_url = "https://docs.google.com/forms/d/e/1FAIpQLSecM8onnA6CMYAtkzIGcRhxSAfnUtdKd9NM8Jxxv4bzajHovA/formResponse"
                             
+                            # फ़ाइनल स्ट्रिंग तैयार करना और रिमार्क जोड़ना
                             final_duty_string = duty_type
                             if is_leave:
                                 final_duty_string = f"{duty_type} ({leave_start.strftime('%d/%m/%Y')} से {leave_end.strftime('%d/%m/%Y')} तक)"
                             elif is_absent_or_sus:
                                 final_duty_string = f"{duty_type} (दिनांक {leave_start.strftime('%d/%m/%Y')} से)"
+                            
+                            # यदि मुंशी ने रिमार्क लिखा है, तो उसे ड्यूटी स्ट्रिंग के साथ जोड़ना
+                            if duty_remark:
+                                final_duty_string = f"{final_duty_string} - [{duty_remark}]"
                                 
                             payload = {"entry.154343115": pno, "entry.2122326148": name, "entry.1503406512": rank, "entry.926857669": assigned_thana, "entry.88588834": final_duty_string}
                             
