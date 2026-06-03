@@ -206,9 +206,9 @@ else:
                 
                 idx = 1
                 for _, row in df_thana_staff.iterrows():
-                    pno_val = str(row.iloc[1]).split('.')[0].strip()   # 1 पर PNO
-                    name_val = str(row.iloc[2]).strip()               # 2 पर Name
-                    rank_val = str(row.iloc[3]).strip()               # 3 पर Designation
+                    pno_val = str(row.iloc[1]).split('.')[0].strip()
+                    name_val = str(row.iloc[2]).strip()
+                    rank_val = str(row.iloc[3]).strip()
                     
                     display_text = f"{idx} | {name_val} | PNO: {pno_val} | {rank_val}"
                     staff_options.append(display_text)
@@ -235,43 +235,42 @@ else:
                         is_duplicate = False
                         existing_duty = ""
                         
-                        # 🎯 [नया सुरक्षा चक्र] लाइव ड्यूटी शीट में डुप्लीकेट चेकिंग
                         try:
                             df_check = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
                             df_check.columns = [str(c).strip() for c in df_check.columns]
                             
-                            # तारीख, PNO और ड्यूटी कॉलम की पहचान
                             d_col = next((c for c in df_check.columns if any(x in c.lower() for x in ['तारीख', 'दिनांक', 'date', 'timestamp'])), None)
                             p_col = next((c for c in df_check.columns if any(x in c.lower() for x in ['pno', 'पीएनओ', 'नम्बर'])), None)
                             du_col = next((c for c in df_check.columns if any(x in c.lower() for x in ['ड्यूटी', 'duty'])), None)
                             
                             if d_col and p_col:
-                                # तारीख को मैचिंग फ़ॉर्मेट में बदलना
                                 df_check['temp_date'] = pd.to_datetime(df_check[d_col], errors='coerce').dt.date
-                                
-                                # आज की तारीख और इस PNO का सटीक मिलान ढूंढना
                                 match_rows = df_check[(df_check['temp_date'] == today_date) & (df_check[p_col].astype(str).str.contains(str(pno)))]
                                 
                                 if not match_rows.empty:
                                     is_duplicate = True
                                     existing_duty = str(match_rows.iloc[0][du_col]) if du_col else "अन्य ड्यूटी"
-                        except Exception as e:
-                            # यदि लाइव शीट लोड न हो पाए तो सुरक्षा के लिए ब्लॉक न करें, सिर्फ चेतावनी दें
+                        except:
                             pass
                         
-                        # 🚨 अलर्ट और सबमिशन ब्लॉक लॉजिक
                         if is_duplicate:
                             st.error(f"⚠️ एलर्ट: {name} (PNO: {pno}) की ड्यूटी आज की तारीख ({today_date.strftime('%d-%m-%Y')}) में पहले से ही '[ {existing_duty} ]' पर लगी है। कृपया किसी और कर्मी को चुनें।")
                         else:
                             form_url = "https://docs.google.com/forms/d/e/1FAIpQLSecM8onnA6CMYAtkzIGcRhxSAfnUtdKd9NM8Jxxv4bzajHovA/formResponse"
                             payload = {"entry.154343115": pno, "entry.2122326148": name, "entry.1503406512": rank, "entry.926857669": assigned_thana, "entry.88588834": duty_type}
+                            
+                            # 🎯 [फिक्स] ट्राई-एक्सेप्ट ब्लॉक को रीस्ट्रक्चर किया गया ताकि सबमिट होने के बाद फॉल्स एरर न आए
+                            success_flag = False
                             try:
                                 requests.post(form_url, data=payload)
+                                success_flag = True
+                            except:
+                                st.error("❌ नेटवर्क या कनेक्शन फेल हुआ। कृपया दोबारा प्रयास करें।")
+                            
+                            if success_flag:
                                 st.success(f"✔️ {name} का रिकॉर्ड सफलतापूर्वक दर्ज हो गया है!")
                                 time.sleep(1)
                                 st.rerun()
-                            except: 
-                                st.error("कनेक्शन फेल हुआ।")
                     else:
                         st.error("❌ कृपया पहले सूची से कर्मचारी का चयन करें!")
 
