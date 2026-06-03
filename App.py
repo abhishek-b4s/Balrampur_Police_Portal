@@ -98,7 +98,7 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
         short_name = selected_thana.replace("कोतवाली", "").strip()
         filtered_df = filtered_df[filtered_df[thana_col].astype(str).str.contains(short_name, case=False, na=False)]
 
-    if selected_duty and selected_duty != "सभी ड्यूटी" and duty_col:
+    if selected_duty and selected_duty != "सभी अभ्यर्थी" and selected_duty != "सभी ड्यूटी" and duty_col:
         filtered_df = filtered_df[filtered_df[duty_col].astype(str).str.contains(str(selected_duty), case=False, na=False)]
             
     return filtered_df
@@ -115,7 +115,7 @@ if not st.session_state.logged_in:
         except Exception: st.markdown("<h1 style='font-size: 80px; margin: 0;'>👮</h1>", unsafe_allow_html=True)
             
     with col_title:
-        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश police | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='margin-top:0;'>दैनिक ड्यूटी मैनेजमेंट पोर्टल</h3>", unsafe_allow_html=True)
     
     with st.container():
@@ -164,6 +164,7 @@ else:
                     df_all_duties = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
                     filtered_df = filter_duty_data(df_all_duties, filter_date, filter_thana, filter_duty)
                     
+                    # 🎯 डुप्लीकेट कॉलम हटाकर सीधे इंडेक्स को 1 से शुरू करना
                     if not filtered_df.empty:
                         filtered_df = filtered_df.reset_index(drop=True)
                         filtered_df.index = filtered_df.index + 1
@@ -191,7 +192,7 @@ else:
                     st.dataframe(df_master, use_container_width=True)
                 except Exception as e: st.error(str(e))
 
-    # === थाना यूज़र व्यू (ड्यूटी फीड करने वाला टैब) ===
+    # === थाना यूज़र व्यू (लाइव चेकिंग के साथ 100% सटीक) ===
     else:
         assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अज्ञात थाना")
         thana_tab1, thana_tab2 = st.tabs(["📝 दैनिक ड्यूटी फीडिंग", "🔍 लाइव ड्यूटी देखें"])
@@ -199,7 +200,6 @@ else:
         with thana_tab1:
             st.subheader(f"ड्यूटी एंट्री फॉर्म - {assigned_thana}")
             
-            # कर्मचारी सूची का कड़क री-स्ट्रक्चरिंग (क्रम संख्या | नाम | PNO | पदनाम)
             staff_options = ["-- चुनें / Select Staff --"]
             staff_dict = {}
             try:
@@ -211,11 +211,10 @@ else:
                 
                 idx = 1
                 for _, row in df_thana_staff.iterrows():
-                    name_val = str(row.iloc[0])              # A कॉलम से नाम
-                    rank_val = str(row.iloc[1])              # B कॉलम से पदनाम
-                    pno_val = str(row.iloc[2]).split('.')[0] # C कॉलम से PNO नंबर
+                    name_val = str(row.iloc[0])
+                    rank_val = str(row.iloc[1])
+                    pno_val = str(row.iloc[2]).split('.')[0]
                     
-                    # बिल्कुल सही पुराना डिस्प्ले क्रम सेट
                     display_text = f"{idx} | {name_val} | PNO: {pno_val} | {rank_val}"
                     staff_options.append(display_text)
                     staff_dict[display_text] = {"pno": pno_val, "name": name_val, "rank": rank_val}
@@ -229,8 +228,6 @@ else:
                 pno = staff_dict[selected_staff]["pno"]
                 name = staff_dict[selected_staff]["name"]
                 rank = staff_dict[selected_staff]["rank"]
-                
-                # नीचे पुख्ता चेकिंग के लिए डिस्प्ले बॉक्स
                 st.markdown(f"🚩 **चयनित विवरण:** `नाम: {name}` | `PNO: {pno}` | `पदनाम: {rank}`")
                 
             duty_type = st.selectbox("ड्यूटी / अवकाश का प्रकार", DUTY_TYPES)
@@ -242,7 +239,7 @@ else:
                         payload = {"entry.154343115": pno, "entry.2122326148": name, "entry.1503406512": rank, "entry.926857669": assigned_thana, "entry.88588834": duty_type}
                         try:
                             requests.post(form_url, data=payload)
-                            st.success(f"✔️ {name} का रिकॉर्ड सफलतापूर्वक दर्ज हो गया है!")
+                            st.success(f"✔️ {name} का रिकॉर्ड दर्ज हो गया है!")
                             time.sleep(1)
                             st.rerun()
                         except: st.error("कनेक्शन फेल हुआ।")
@@ -252,8 +249,18 @@ else:
             if st.button("🔄 रिकॉर्ड देखें / रीफ्रेश", type="primary", use_container_width=True):
                 try:
                     df_thana_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
+                    
+                    # 🎯 [सुधार] केवल और केवल लॉगिन वाले थाने का ही डेटा कड़ाई से फ़िल्टर करना
+                    df_thana_duty.columns = [str(c).strip() for c in df_thana_duty.columns]
+                    thana_col_check = next((c for c in df_thana_duty.columns if any(x in c.lower() for x in ['थाना', 'thana', 'unit'])), None)
+                    
+                    if thana_col_check:
+                        short_thana_name = assigned_thana.replace("कोतवाली", "").strip()
+                        df_thana_duty = df_thana_duty[df_thana_duty[thana_col_check].astype(str).str.contains(short_thana_name, case=False, na=False)]
+                    
                     final_thana_df = filter_duty_data(df_thana_duty, thana_filter_date, assigned_thana, "सभी ड्यूटी")
                     
+                    # 🎯 डुप्लीकेट क्रम संख्या हटाकर केवल एक क्लीन इंडेक्स सेट करना
                     if not final_thana_df.empty:
                         final_thana_df = final_thana_df.reset_index(drop=True)
                         final_thana_df.index = final_thana_df.index + 1
