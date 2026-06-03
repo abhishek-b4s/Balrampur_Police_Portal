@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 import requests
 import time
 
@@ -44,7 +44,7 @@ st.markdown("""
 THANA_LIST = [
     "कोतवाली नगर", "कोतवाली देहात", "तुलसीपुर", "गैसड़ी", "पचपेड़वा", "कोतवाली जरवा", 
     "महाराजगंज", "ललिया", "हरैया", "उतरौला", "सादुल्लानगर", "रेहरा बाज़ार", 
-    "गौरा चौराха", "गैड़ास बुजुर्ग", "श्रीदत्तगंज", "ए0एच0टी0 थाना", "रिजर्व पुलिस line", "महिला थाना", "साइबर क्राइम थाना"
+    "गौरा चौराहा", "गैड़ास बुजुर्ग", "श्रीदत्तगंज", "ए0एच0टी0 थाना", "रिजर्व पुलिस line", "महिला थाना", "साइबर क्राइम थाना"
 ]
 
 DUTY_TYPES = ["लॉ एंड ओरडर (L&O)", "वीआईपी (VIP) – ड्यूटी", "पिकेट/गश्त", "कोर्ट ड्यूटी", "समन तामीला", "तफ्तीश/जांच", "आकस्मिक अवकाश", "सामान्य अवकाश", "गैर हाजिर", "निलम्बित", "अन्य"]
@@ -145,6 +145,7 @@ else:
     live_t = int(time.time())
     SPREADSHEET_ID = "1WFvkW8CXYIN_bKJWN5m7Ieh814LlFLjYqZVpjivJhdA"
     
+    # मूल लाइव डेटा सोर्स जहाँ फॉर्म का डेटा जाता है
     DYNAMIC_DUTY_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=127153860&cache_bypass={live_t}"
     DYNAMIC_MASTER_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=0&cache_bypass={live_t}"
 
@@ -155,30 +156,16 @@ else:
         
         with tab1:
             col1, col2, col3 = st.columns(3)
-            with col1: filter_date = st.date_input("तاریख", datetime.now().date(), key="hq_d")
+            with col1: filter_date = st.date_input("तारीख", datetime.now().date(), key="hq_d")
             with col2: filter_thana = st.selectbox("थाना", ["सभी थाने"] + THANA_LIST, key="hq_t")
             with col3: filter_duty = st.selectbox("ड्यूटी प्रकार", ["सभी ड्यूटी"] + DUTY_TYPES, key="hq_du")
             
             if st.button("🔍 लाइव डेटा सर्च / रीफ्रेश करें", type="primary", use_container_width=True):
                 try:
                     df_all_duties = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
-                    df_all_duties.columns = [str(c).strip() for c in df_all_duties.columns]
-                    
-                    # सभी थानों के अलग-अलग टैब से डेटा खींचकर मास्टर में मिलाना
-                    for t_name in THANA_LIST:
-                        try:
-                            bulk_url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet={t_name}&cache_bypass={live_t}"
-                            df_t_bulk = pd.read_csv(bulk_url)
-                            if not df_t_bulk.empty:
-                                df_t_bulk.columns = [str(c).strip() for c in df_t_bulk.columns]
-                                if not any(x in ''.join(df_t_bulk.columns).lower() for x in ['थाना', 'thana']):
-                                    df_t_bulk['Thana'] = t_name
-                                df_all_duties = pd.concat([df_all_duties, df_t_bulk], ignore_index=True)
-                        except Exception: pass
-
                     filtered_df = filter_duty_data(df_all_duties, filter_date, filter_thana, filter_duty)
                     
-                    # 🔍 [जादू चालू] क्रम संख्या को फ़िल्टर के हिसाब से हमेशा 1 से शुरू करना 🔍
+                    # 🔍 क्रम संख्या हमेशा 1 से शुरू होगी (Reset Index) 🔍
                     if not filtered_df.empty:
                         filtered_df = filtered_df.reset_index(drop=True)
                         filtered_df.index = filtered_df.index + 1
@@ -193,13 +180,11 @@ else:
             if st.button("🔍 मास्टर सूची लोड करें", use_container_width=True):
                 try:
                     df_master = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
-                    df_master.columns = [str(c).strip() for c in df_master.columns]
                     if search_master_thana != "जनपद के सभी थाने":
                         short_search = search_master_thana.replace("कोतवाली", "").strip()
                         thana_col_m = next((c for c in df_master.columns if 'थाना' in c or 'thana' in c.lower()), df_master.columns[0])
                         df_master = df_master[df_master[thana_col_m].astype(str).str.contains(short_search, case=False, na=False)]
                     
-                    # मास्टर लिस्ट के लिए भी क्रम संख्या 1 से सेट करना
                     if not df_master.empty:
                         df_master = df_master.reset_index(drop=True)
                         df_master.index = df_master.index + 1
@@ -208,29 +193,13 @@ else:
                     st.dataframe(df_master, use_container_width=True)
                 except Exception as e: st.error(str(e))
 
-    # === थाना यूजर व्यू (स्मार्ट डिसेबल सुरक्षा गार्ड के साथ) ===
+    # === थाना यूज़र व्यू ===
     else:
         assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अज्ञात थाना")
-        thana_tab1, thana_tab2 = st.tabs(["📝 ड्यूटी फीड करें", "🔍 लाइव ड्यूटी देखें"])
+        thana_tab1, thana_tab2 = st.tabs(["📝 दैनिक ड्यूटी फीडिंग", "🔍 लाइव ड्यूटी देखें"])
         
-        # बैकएंड डेटा लोडिंग (स्मार्ट चेकिंग के लिए)
-        df_thana_duty = pd.DataFrame()
-        try:
-            df_thana_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
-            df_thana_duty.columns = [str(c).strip() for c in df_thana_duty.columns]
-            
-            specific_bulk_url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet={assigned_thana}&cache_bypass={live_t}"
-            df_b_spec = pd.read_csv(specific_bulk_url)
-            if not df_b_spec.empty:
-                df_b_spec.columns = [str(c).strip() for c in df_b_spec.columns]
-                if not any(x in ''.join(df_b_spec.columns).lower() for x in ['थाना', 'thana']):
-                    df_b_spec['Thana'] = assigned_thana
-                df_thana_duty = pd.concat([df_thana_duty, df_b_spec], ignore_index=True)
-        except Exception: pass
-
         with thana_tab1:
-            st.subheader(f"फीडिंग फॉर्म - {assigned_thana}")
-            st.info(f"💡 **शॉर्टकट एक्सेल तरीका चालू है:** मुंशी जी, आप सीधे अपनी गूगल शीट के टैब **'{assigned_thana}'** में जाकर पूरे थाने का डेटा खटाखट सेलेक्ट कर सकते हैं।")
+            st.subheader(f"ड्यूटी एंट्री फॉर्म - {assigned_thana}")
             
             staff_options = ["-- चुनें / Select Staff --"]
             staff_dict = {}
@@ -250,49 +219,16 @@ else:
 
             selected_staff = st.selectbox("सूची से कर्मचारी चुनें", staff_options)
             pno, name, rank = "", "", ""
-            
-            submit_disabled = False
             if selected_staff != "-- चुनें / Select Staff --":
                 pno = staff_dict[selected_staff]["pno"]
                 name = staff_dict[selected_staff]["name"]
                 rank = staff_dict[selected_staff]["rank"]
                 
-                # 🧠 🚨 **स्मार्ट सुरक्षा गार्ड लॉजिक (Validation Rules)** 🚨 🧠
-                today_dt = datetime.now().date()
-                yesterday_dt = today_dt - timedelta(days=1)
-                tomorrow_dt = today_dt + timedelta(days=1)
-
-                if not df_thana_duty.empty:
-                    # नियम 1: क्या आज ड्यूटी पहले ही लग चुकी है?
-                    already_done = df_thana_duty[
-                        (df_thana_duty['PNO'].astype(str) == str(pno)) & 
-                        (pd.to_datetime(df_thana_duty['Date'], errors='coerce').dt.date == today_dt)
-                    ]
-                    
-                    # नियम 2: क्या कर्मी अवकाश/बफर पीरियड में है?
-                    on_leave = df_thana_duty[
-                        (df_thana_duty['PNO'].astype(str) == str(pno)) & 
-                        (df_thana_duty['Duty'].str.contains('अवकाश', na=False, case=False)) & 
-                        (pd.to_datetime(df_thana_duty['Date'], errors='coerce').dt.date.isin([yesterday_dt, today_dt, tomorrow_dt]))
-                    ]
-
-                    if not already_done.empty:
-                        st.error(f"❌ आरक्षी {name} की ड्यूटी आज पहले ही दर्ज की जा चुकी है! रिपीटीशन प्रतिबंधित है।")
-                        submit_disabled = True
-                    elif not on_leave.empty:
-                        st.warning(f"⚠️ आरक्षी {name} अवकाश पर हैं (या आगे/पीछे के 1 दिन के सुरक्षा बफर में हैं)। ड्यूटी लॉक है।")
-                        submit_disabled = True
-
-            # अगर ड्यूटी लॉक है, तो ड्यूटी चुनने का विकल्प डिसेबल हो जाएगा
-            if submit_disabled:
-                duty_type = st.selectbox("ड्यूटी / अवकाश का प्रकार", ["🚫 प्रतिबंधित (Locked)"], disabled=True)
-            else:
-                duty_type = st.selectbox("ड्यूटी / अवकाश का प्रकार", DUTY_TYPES)
-                
+            duty_type = st.selectbox("ड्यूटी / अवकाश का प्रकार", DUTY_TYPES)
+            
             with st.form("sub_form", clear_on_submit=True):
-                # बटन को लॉक या अनलॉक रखना
-                if st.form_submit_button("🚀 सिंगल रिकॉर्ड सबमिट करें", type="primary", disabled=submit_disabled, use_container_width=True):
-                    if name and pno and not submit_disabled:
+                if st.form_submit_button("🚀 ड्यूटी सबमिट करें", type="primary", use_container_width=True):
+                    if name and pno:
                         form_url = "https://docs.google.com/forms/d/e/1FAIpQLSecM8onnA6CMYAtkzIGcRhxSAfnUtdKd9NM8Jxxv4bzajHovA/formResponse"
                         payload = {"entry.154343115": pno, "entry.2122326148": name, "entry.1503406512": rank, "entry.926857669": assigned_thana, "entry.88588834": duty_type}
                         try:
@@ -305,12 +241,15 @@ else:
         with thana_tab2:
             thana_filter_date = st.date_input("तारीख चुनें", datetime.now().date(), key="th_v_d")
             if st.button("🔄 रिकॉर्ड देखें / रीफ्रेश", type="primary", use_container_width=True):
-                final_thana_df = filter_duty_data(df_thana_duty, thana_filter_date, assigned_thana, "सभी ड्यूटी")
-                
-                # 🔍 [जादू चालू] थाना व्यू में भी क्रम संख्या हमेशा 1 से शुरू करना 🔍
-                if not final_thana_df.empty:
-                    final_thana_df = final_thana_df.reset_index(drop=True)
-                    final_thana_df.index = final_thana_df.index + 1
-                    final_thana_df.index.name = "क्रम सं०"
+                try:
+                    df_thana_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
+                    final_thana_df = filter_duty_data(df_thana_duty, thana_filter_date, assigned_thana, "सभी ड्यूटी")
                     
-                st.dataframe(final_thana_df, use_container_width=True)
+                    # 🔍 थानों के लिए भी क्रम संख्या हमेशा 1 से शुरू होगी (Reset Index) 🔍
+                    if not final_thana_df.empty:
+                        final_thana_df = final_thana_df.reset_index(drop=True)
+                        final_thana_df.index = final_thana_df.index + 1
+                        final_thana_df.index.name = "क्रम सं०"
+                        
+                    st.dataframe(final_thana_df, use_container_width=True)
+                except Exception as e: st.error(str(e))
