@@ -191,7 +191,7 @@ else:
                     st.dataframe(df_master, use_container_width=True)
                 except Exception as e: st.error(str(e))
 
-    # === थाना यूज़र व्यू (ड्यूटी फीड करने वाला टैब - रीसेट किया हुआ) ===
+    # === थाना यूज़र व्यू (ड्यूटी फीड करने वाला टैब) ===
     else:
         assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अज्ञात थाना")
         thana_tab1, thana_tab2 = st.tabs(["📝 दैनिक ड्यूटी फीडिंग", "🔍 लाइव ड्यूटी देखें"])
@@ -199,7 +199,7 @@ else:
         with thana_tab1:
             st.subheader(f"ड्यूटी एंट्री फॉर्म - {assigned_thana}")
             
-            # पहले की तरह ही पूरा ड्रॉपडाउन क्रम (PNO | नाम) सेट करना
+            # कर्मचारी सूची का कड़क री-स्ट्रक्चरिंग (क्रम संख्या | नाम | PNO | पदनाम)
             staff_options = ["-- चुनें / Select Staff --"]
             staff_dict = {}
             try:
@@ -209,27 +209,29 @@ else:
                 thana_col_staff = next((c for c in df_all_staff.columns if 'थाना' in c or 'thana' in c.lower()), df_all_staff.columns[0])
                 df_thana_staff = df_all_staff[df_all_staff[thana_col_staff].astype(str).str.contains(short_assigned, case=False, na=False)]
                 
+                idx = 1
                 for _, row in df_thana_staff.iterrows():
-                    pno_val = str(row.iloc[2]).split('.')[0] # C कॉलम से PNO
-                    name_val = str(row.iloc[0]) # A कॉलम से नाम व पदनाम
-                    rank_val = str(row.iloc[1]) # B कॉलम से पदनाम/रैंक
+                    name_val = str(row.iloc[0])              # A कॉलम से नाम
+                    rank_val = str(row.iloc[1])              # B कॉलम से पदनाम
+                    pno_val = str(row.iloc[2]).split('.')[0] # C कॉलम से PNO नंबर
                     
-                    display_text = f"{pno_val} | {name_val}"
+                    # बिल्कुल सही पुराना डिस्प्ले क्रम सेट
+                    display_text = f"{idx} | {name_val} | PNO: {pno_val} | {rank_val}"
                     staff_options.append(display_text)
                     staff_dict[display_text] = {"pno": pno_val, "name": name_val, "rank": rank_val}
+                    idx += 1
             except Exception: pass
 
-            selected_staff = st.selectbox("सूची से कर्मचारी चुनें (PNO | नाम)", staff_options)
+            selected_staff = st.selectbox("सूची से कर्मचारी चुनें (क्रम | नाम | PNO | पदनाम)", staff_options)
             pno, name, rank = "", "", ""
             
-            # अगर सेलेक्ट किया है, तो नीचे विवरण पहले की तरह साफ-साफ दिखेगा
             if selected_staff != "-- चुनें / Select Staff --":
                 pno = staff_dict[selected_staff]["pno"]
                 name = staff_dict[selected_staff]["name"]
                 rank = staff_dict[selected_staff]["rank"]
                 
-                # मुंशी जी की तसल्ली के लिए स्क्रीन पर साफ डिस्प्ले
-                st.markdown(f"**चयनित विवरण:** 🆔 PNO: `{pno}` | 👤 नाम: `{name}` | 🎖️ पदनाम: `{rank}`")
+                # नीचे पुख्ता चेकिंग के लिए डिस्प्ले बॉक्स
+                st.markdown(f"🚩 **चयनित विवरण:** `नाम: {name}` | `PNO: {pno}` | `पदनाम: {rank}`")
                 
             duty_type = st.selectbox("ड्यूटी / अवकाश का प्रकार", DUTY_TYPES)
             
