@@ -113,7 +113,7 @@ if not st.session_state.logged_in:
         except Exception: st.markdown("<h1 style='font-size: 80px; margin: 0;'>👮</h1>", unsafe_allow_html=True)
             
     with col_title:
-        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर Pradesh पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='margin-top:0;'>दैनिक ड्यूटी मैनेजमेंट पोर्टल</h3>", unsafe_allow_html=True)
     
     with st.container():
@@ -178,7 +178,6 @@ else:
                     df_master = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
                     if search_master_thana != "जनपद के सभी थाने":
                         df_master.columns = [str(c).strip() for c in df_master.columns]
-                        # मास्टर शीट के अनुसार 4 नंबर पर Thana कॉलम है
                         df_master = df_master[df_master.iloc[:, 4].astype(str).str.strip() == search_master_thana.strip()]
                     
                     if not df_master.empty:
@@ -203,17 +202,14 @@ else:
                 df_all_staff = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
                 df_all_staff.columns = [str(c).strip() for c in df_all_staff.columns]
                 
-                # 🎯 [100% सटीक लॉक] आपके द्वारा दिए गए 'SN PNO Name Designation Thana' स्ट्रक्चर के अनुसार:
-                # 4 नंबर इंडेक्स पर Thana कॉलम है, जिससे मैच करेंगे
                 df_thana_staff = df_all_staff[df_all_staff.iloc[:, 4].astype(str).str.strip() == assigned_thana.strip()]
                 
                 idx = 1
                 for _, row in df_thana_staff.iterrows():
                     pno_val = str(row.iloc[1]).split('.')[0].strip()   # 1 पर PNO
                     name_val = str(row.iloc[2]).strip()               # 2 पर Name
-                    rank_val = str(row.iloc[3]).strip()               # 3 पर Designation (पदनाम)
+                    rank_val = str(row.iloc[3]).strip()               # 3 पर Designation
                     
-                    # 🎯 ड्रॉपडाउन एकदम सही दिखेगा: "1 | मनोज कुमार सिंह | PNO: 920580949 | मुख्य आरक्षी"
                     display_text = f"{idx} | {name_val} | PNO: {pno_val} | {rank_val}"
                     staff_options.append(display_text)
                     staff_dict[display_text] = {"pno": pno_val, "name": name_val, "rank": rank_val}
@@ -235,14 +231,49 @@ else:
             with st.form("sub_form", clear_on_submit=True):
                 if st.form_submit_button("🚀 ड्यूटी सबमिट करें", type="primary", use_container_width=True):
                     if name and pno:
-                        form_url = "https://docs.google.com/forms/d/e/1FAIpQLSecM8onnA6CMYAtkzIGcRhxSAfnUtdKd9NM8Jxxv4bzajHovA/formResponse"
-                        payload = {"entry.154343115": pno, "entry.2122326148": name, "entry.1503406512": rank, "entry.926857669": assigned_thana, "entry.88588834": duty_type}
+                        today_date = datetime.now().date()
+                        is_duplicate = False
+                        existing_duty = ""
+                        
+                        # 🎯 [नया सुरक्षा चक्र] लाइव ड्यूटी शीट में डुप्लीकेट चेकिंग
                         try:
-                            requests.post(form_url, data=payload)
-                            st.success(f"✔️ {name} का रिकॉर्ड दर्ज हो गया है!")
-                            time.sleep(1)
-                            st.rerun()
-                        except: st.error("कनेक्शन फेल हुआ।")
+                            df_check = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
+                            df_check.columns = [str(c).strip() for c in df_check.columns]
+                            
+                            # तारीख, PNO और ड्यूटी कॉलम की पहचान
+                            d_col = next((c for c in df_check.columns if any(x in c.lower() for x in ['तारीख', 'दिनांक', 'date', 'timestamp'])), None)
+                            p_col = next((c for c in df_check.columns if any(x in c.lower() for x in ['pno', 'पीएनओ', 'नम्बर'])), None)
+                            du_col = next((c for c in df_check.columns if any(x in c.lower() for x in ['ड्यूटी', 'duty'])), None)
+                            
+                            if d_col and p_col:
+                                # तारीख को मैचिंग फ़ॉर्मेट में बदलना
+                                df_check['temp_date'] = pd.to_datetime(df_check[d_col], errors='coerce').dt.date
+                                
+                                # आज की तारीख और इस PNO का सटीक मिलान ढूंढना
+                                match_rows = df_check[(df_check['temp_date'] == today_date) & (df_check[p_col].astype(str).str.contains(str(pno)))]
+                                
+                                if not match_rows.empty:
+                                    is_duplicate = True
+                                    existing_duty = str(match_rows.iloc[0][du_col]) if du_col else "अन्य ड्यूटी"
+                        except Exception as e:
+                            # यदि लाइव शीट लोड न हो पाए तो सुरक्षा के लिए ब्लॉक न करें, सिर्फ चेतावनी दें
+                            pass
+                        
+                        # 🚨 अलर्ट और सबमिशन ब्लॉक लॉजिक
+                        if is_duplicate:
+                            st.error(f"⚠️ एलर्ट: {name} (PNO: {pno}) की ड्यूटी आज की तारीख ({today_date.strftime('%d-%m-%Y')}) में पहले से ही '[ {existing_duty} ]' पर लगी है। कृपया किसी और कर्मी को चुनें।")
+                        else:
+                            form_url = "https://docs.google.com/forms/d/e/1FAIpQLSecM8onnA6CMYAtkzIGcRhxSAfnUtdKd9NM8Jxxv4bzajHovA/formResponse"
+                            payload = {"entry.154343115": pno, "entry.2122326148": name, "entry.1503406512": rank, "entry.926857669": assigned_thana, "entry.88588834": duty_type}
+                            try:
+                                requests.post(form_url, data=payload)
+                                st.success(f"✔️ {name} का रिकॉर्ड सफलतापूर्वक दर्ज हो गया है!")
+                                time.sleep(1)
+                                st.rerun()
+                            except: 
+                                st.error("कनेक्शन फेल हुआ।")
+                    else:
+                        st.error("❌ कृपया पहले सूची से कर्मचारी का चयन करें!")
 
         with thana_tab2:
             thana_filter_date = st.date_input("तारीख चुनें", datetime.now().date(), key="th_v_d")
