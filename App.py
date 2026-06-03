@@ -94,7 +94,6 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
             d_dash = selected_date.strftime("%d-%m-%Y")
             filtered_df = filtered_df[filtered_df[date_col].astype(str).str.contains(d_dash)]
 
-    # सख्त कड़ा मैच (==) ताकि कोई भी दूसरा थाना मिक्स न हो
     if selected_thana and selected_thana != "सभी थाने" and thana_col:
         filtered_df = filtered_df[filtered_df[thana_col].astype(str).str.strip() == selected_thana.strip()]
 
@@ -164,7 +163,6 @@ else:
                     df_all_duties = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
                     filtered_df = filter_duty_data(df_all_duties, filter_date, filter_thana, filter_duty)
                     
-                    # 🎯 डिफ़ॉल्ट इंडेक्स को ही 1 से शुरू करके "क्रम सं०" नाम देना (नो डुप्लीकेशन)
                     if not filtered_df.empty:
                         filtered_df = filtered_df.reset_index(drop=True)
                         filtered_df.index = filtered_df.index + 1
@@ -195,7 +193,7 @@ else:
     # === थाना यूज़र व्यू ===
     else:
         assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अज्ञात थाना")
-        thana_tab1, thana_tab2 = st.tabs(["📝 दैनिक दैनिक ड्यूटी फीडिंग", "🔍 लाइव ड्यूटी देखें"])
+        thana_tab1, thana_tab2 = st.tabs(["📝 दैनिक ड्यूटी फीडिंग", "🔍 लाइव ड्यूटी देखें"])
         
         with thana_tab1:
             st.subheader(f"ड्यूटी एंट्री फॉर्म - {assigned_thana}")
@@ -205,17 +203,23 @@ else:
             try:
                 df_all_staff = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
                 df_all_staff.columns = [str(c).strip() for c in df_all_staff.columns]
+                
+                # 🎯 [जड़ से सुधार] कॉलम का सटीक नाम ढूंढना (ताकि खिसकने पर भी गलत डेटा न उठे)
+                name_col = next((c for c in df_all_staff.columns if 'नाम' in c or 'name' in c.lower()), None)
+                rank_col = next((c for c in df_all_staff.columns if 'पदनाम' in c or 'rank' in c.lower() or 'पद' in c), None)
+                pno_col = next((c for c in df_all_staff.columns if 'pno' in c.lower() or 'पीएनओ' in c or 'नम्बर' in c), None)
                 thana_col_staff = next((c for c in df_all_staff.columns if 'थाना' in c or 'thana' in c.lower()), df_all_staff.columns[0])
                 
-                # सख्त बराबर मैचिंग
                 df_thana_staff = df_all_staff[df_all_staff[thana_col_staff].astype(str).str.strip() == assigned_thana.strip()]
                 
                 idx = 1
                 for _, row in df_thana_staff.iterrows():
-                    name_val = str(row.iloc[0])
-                    rank_val = str(row.iloc[1])
-                    pno_val = str(row.iloc[2]).split('.')[0]
+                    # अगर नाम से कॉलम मिल गए तो वही उठाओ, वरना पुरानी पोजीशन बैकअप
+                    name_val = str(row[name_col]) if name_col else str(row.iloc[0])
+                    rank_val = str(row[rank_col]) if rank_col else str(row.iloc[1])
+                    pno_val = str(row[pno_col]).split('.')[0] if pno_col else str(row.iloc[2]).split('.')[0]
                     
+                    # 🎯 ड्रॉपडाउन का बिल्कुल साफ फ़ॉर्मेट (डबल सीरियल नंबर का अंत)
                     display_text = f"{idx} | {name_val} | PNO: {pno_val} | {rank_val}"
                     staff_options.append(display_text)
                     staff_dict[display_text] = {"pno": pno_val, "name": name_val, "rank": rank_val}
@@ -250,7 +254,6 @@ else:
             if st.button("🔄 रिकॉर्ड देखें / रीफ्रेश", type="primary", use_container_width=True):
                 try:
                     df_thana_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
-                    
                     df_thana_duty.columns = [str(c).strip() for c in df_thana_duty.columns]
                     thana_col_check = next((c for c in df_thana_duty.columns if any(x in c.lower() for x in ['थाना', 'thana', 'unit'])), None)
                     
@@ -259,7 +262,6 @@ else:
                     
                     final_thana_df = filter_duty_data(df_thana_duty, thana_filter_date, assigned_thana, "सभी ड्यूटी")
                     
-                    # 🎯 इंडेक्स को ही 1 से सेट करके नाम "क्रम सं०" देना ताकि एक्स्ट्रा कॉलम न बने
                     if not final_thana_df.empty:
                         final_thana_df = final_thana_df.reset_index(drop=True)
                         final_thana_df.index = final_thana_df.index + 1
