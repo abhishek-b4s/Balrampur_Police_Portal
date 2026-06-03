@@ -5,7 +5,7 @@ import requests
 import time
 
 # =============================================================
-# चरण 1: पोर्टल कॉन्फ़िगरेशन और police 'यूनिफॉर्म' थीम
+# चरण 1: पोर्टल कॉन्फ़िगरेशन और पुलिस 'यूनिफॉर्म' थीम
 # =============================================================
 st.set_page_config(
     page_title="जिला पुलिस डेली ड्यूटी पोर्टल", 
@@ -228,11 +228,104 @@ else:
                 
             duty_type = st.selectbox("ड्यूटी / अवकाश का प्रकार", DUTY_TYPES)
             
-            # 🎯 [स्मार्ट कंडीशन्स] अलग-अलग स्टेटस के लिए टैब तय करना
+            # स्मार्ट चेकिंग कंडीशन्स
             is_leave = "अवकाश" in duty_type
             is_absent_or_sus = duty_type in ["गैर हाजिर", "निलम्बित"]
             
-            leave_start = datetime.now().date()
-            leave_end = datetime.now().date()
-            
-            # कंडीशन 1: अगर सिर्फ अवकाश चुना गया हो (
+            # 🎯 [सुधार] फॉर्म की शुरुआत यहाँ से होगी, ताकि सबमिट बटन गायब न हो
+            with st.form("sub_form", clear_on_submit=True):
+                
+                leave_start = datetime.now().date()
+                leave_end = datetime.now().date()
+                
+                # कंडीशन 1: अगर किसी भी प्रकार का अवकाश चुना गया हो (दो डेट बॉक्स)
+                if is_leave:
+                    st.info(f"ℹ️ {duty_type} की समयावधि दर्ज करें:")
+                    col_start, col_end = st.columns(2)
+                    with col_start:
+                        leave_start = st.date_input("प्रारम्भ तिथि (From Date)", datetime.now().date(), key="lv_st")
+                    with col_end:
+                        leave_end = st.date_input("समाप्ति तिथि (To Date)", datetime.now().date(), key="lv_ed")
+                    
+                    if leave_start > leave_end:
+                        st.error("❌ त्रुटि: प्रारम्भ तिथि, समाप्ति तिथि से बाद की नहीं हो सकती!")
+                        
+                # कंडीशन 2: अगर गैर हाजिर या निलम्बित चुना गया हो (सिर्फ एक डेट बॉक्स)
+                elif is_absent_or_sus:
+                    st.info(f"ℹ️ {duty_type} होने की तिथि दर्ज करें:")
+                    leave_start = st.date_input("प्रारम्भ तिथि / किस दिनांक से (From Date)", datetime.now().date(), key="abs_st")
+                
+                # फॉर्म का मुख्य सबमिट बटन
+                if st.form_submit_button("🚀 ड्यूटी सबमिट करें", type="primary", use_container_width=True):
+                    if name and pno:
+                        today_date = datetime.now().date()
+                        is_duplicate = False
+                        existing_duty = ""
+                        
+                        try:
+                            df_check = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
+                            df_check.columns = [str(c).strip() for c in df_check.columns]
+                            
+                            d_col = next((c for c in df_check.columns if any(x in c.lower() for x in ['तारीख', 'दिनांक', 'date', 'timestamp'])), None)
+                            p_col = next((c for c in df_check.columns if any(x in c.lower() for x in ['pno', 'पीएनओ', 'नम्बर'])), None)
+                            du_col = next((c for c in df_check.columns if any(x in c.lower() for x in ['ड्यूटी', 'duty'])), None)
+                            
+                            if d_col and p_col:
+                                df_check['temp_date'] = pd.to_datetime(df_check[d_col], errors='coerce').dt.date
+                                match_rows = df_check[(df_check['temp_date'] == today_date) & (df_check[p_col].astype(str).str.contains(str(pno)))]
+                                
+                                if not match_rows.empty:
+                                    is_duplicate = True
+                                    existing_duty = str(match_rows.iloc[0][du_col]) if du_col else "अन्य ड्यूटी"
+                        except:
+                            pass
+                        
+                        if is_leave and leave_start > leave_end:
+                            st.error("❌ कृपया सही समयावधि चुनें!")
+                        elif is_duplicate:
+                            st.error(f"⚠️ एलर्ट: {name} (PNO: {pno}) की ड्यूटी आज की तारीख ({today_date.strftime('%d-%m-%Y')}) में पहले से ही '[ {existing_duty} ]' पर लगी है। कृपया किसी और कर्मी को चुनें।")
+                        else:
+                            form_url = "https://docs.google.com/forms/d/e/1FAIpQLSecM8onnA6CMYAtkzIGcRhxSAfnUtdKd9NM8Jxxv4bzajHovA/formResponse"
+                            
+                            final_duty_string = duty_type
+                            if is_leave:
+                                final_duty_string = f"{duty_type} ({leave_start.strftime('%d/%m/%Y')} से {leave_end.strftime('%d/%m/%Y')} तक)"
+                            elif is_absent_or_sus:
+                                final_duty_string = f"{duty_type} (दिनांक {leave_start.strftime('%d/%m/%Y')} से)"
+                                
+                            payload = {"entry.154343115": pno, "entry.2122326148": name, "entry.1503406512": rank, "entry.926857669": assigned_thana, "entry.88588834": final_duty_string}
+                            
+                            success_flag = False
+                            try:
+                                requests.post(form_url, data=payload)
+                                success_flag = True
+                            except:
+                                st.error("❌ नेटवर्क या कनेक्शन फेल हुआ। कृपया दोबारा प्रयास करें।")
+                            
+                            if success_flag:
+                                st.success(f"✔️ {name} का रिकॉर्ड सफलतापूर्वक दर्ज हो गया है!")
+                                time.sleep(1)
+                                st.rerun()
+                    else:
+                        st.error("❌ कृपया पहले सूची से कर्मचारी का चयन करें!")
+
+        with thana_tab2:
+            thana_filter_date = st.date_input("तारीख चुनें", datetime.now().date(), key="th_v_d")
+            if st.button("🔄 रिकॉर्ड देखें / रीफ्रेश", type="primary", use_container_width=True):
+                try:
+                    df_thana_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
+                    df_thana_duty.columns = [str(c).strip() for c in df_thana_duty.columns]
+                    thana_col_check = next((c for c in df_thana_duty.columns if any(x in c.lower() for x in ['थाना', 'thana', 'unit'])), None)
+                    
+                    if thana_col_check:
+                        df_thana_duty = df_thana_duty[df_thana_duty[thana_col_check].astype(str).str.strip() == assigned_thana.strip()]
+                    
+                    final_thana_df = filter_duty_data(df_thana_duty, thana_filter_date, assigned_thana, "सभी ड्यूटी")
+                    
+                    if not final_thana_df.empty:
+                        final_thana_df = final_thana_df.reset_index(drop=True)
+                        final_thana_df.index = final_thana_df.index + 1
+                        final_thana_df.index.name = "क्रम सं०"
+                        
+                    st.dataframe(final_thana_df, use_container_width=True)
+                except Exception as e: st.error(str(e))
