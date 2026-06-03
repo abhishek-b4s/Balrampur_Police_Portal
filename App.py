@@ -113,7 +113,7 @@ if not st.session_state.logged_in:
         except Exception: st.markdown("<h1 style='font-size: 80px; margin: 0;'>👮</h1>", unsafe_allow_html=True)
             
     with col_title:
-        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर Pradesh पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='margin-top:0;'>दैनिक ड्यूटी मैनेजमेंट पोर्टल</h3>", unsafe_allow_html=True)
     
     with st.container():
@@ -178,8 +178,8 @@ else:
                     df_master = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
                     if search_master_thana != "जनपद के सभी थाने":
                         df_master.columns = [str(c).strip() for c in df_master.columns]
-                        thana_col_m = next((c for c in df_master.columns if 'थाना' in c or 'thana' in c.lower()), df_master.columns[0])
-                        df_master = df_master[df_master[thana_col_m].astype(str).str.strip() == search_master_thana.strip()]
+                        # मास्टर शीट के अनुसार 4 नंबर पर Thana कॉलम है
+                        df_master = df_master[df_master.iloc[:, 4].astype(str).str.strip() == search_master_thana.strip()]
                     
                     if not df_master.empty:
                         df_master = df_master.reset_index(drop=True)
@@ -203,36 +203,23 @@ else:
                 df_all_staff = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
                 df_all_staff.columns = [str(c).strip() for c in df_all_staff.columns]
                 
-                # 🎯 [कठोर इंडेक्सिंग फिक्स] डायनेमिक सर्च हटाकर सीधे पुलिस स्टैंडर्ड कॉलम पोजीशन लॉक की गई है
-                # क्रम: 0=नाम, 1=पदनाम, 2=PNO नम्बर, 3=थाना
-                thana_col_idx = 3 
-                df_thana_staff = df_all_staff[df_all_staff.iloc[:, thana_col_idx].astype(str).str.strip() == assigned_thana.strip()]
+                # 🎯 [100% सटीक लॉक] आपके द्वारा दिए गए 'SN PNO Name Designation Thana' स्ट्रक्चर के अनुसार:
+                # 4 नंबर इंडेक्स पर Thana कॉलम है, जिससे मैच करेंगे
+                df_thana_staff = df_all_staff[df_all_staff.iloc[:, 4].astype(str).str.strip() == assigned_thana.strip()]
                 
                 idx = 1
                 for _, row in df_thana_staff.iterrows():
-                    name_val = str(row.iloc[0]).strip()
-                    rank_val = str(row.iloc[1]).strip()
-                    pno_val = str(row.iloc[2]).split('.')[0].strip()
+                    pno_val = str(row.iloc[1]).split('.')[0].strip()   # 1 पर PNO
+                    name_val = str(row.iloc[2]).strip()               # 2 पर Name
+                    rank_val = str(row.iloc[3]).strip()               # 3 पर Designation (पदनाम)
                     
-                    # 🎯 परफेक्ट डिस्प्ले फ़ॉर्मेट: "1 | मनोज कुमार सिंह | PNO: 920580949 | आरक्षी"
+                    # 🎯 ड्रॉपडाउन एकदम सही दिखेगा: "1 | मनोज कुमार सिंह | PNO: 920580949 | मुख्य आरक्षी"
                     display_text = f"{idx} | {name_val} | PNO: {pno_val} | {rank_val}"
                     staff_options.append(display_text)
                     staff_dict[display_text] = {"pno": pno_val, "name": name_val, "rank": rank_val}
                     idx += 1
-            except Exception:
-                # बैकअप विकल्प अगर आपकी मास्टर शीट में पहला कॉलम 'क्र०सं०' का है (0=क्र०सं०, 1=नाम, 2=पदनाम, 3=PNO, 4=थाना)
-                try:
-                    df_thana_staff = df_all_staff[df_all_staff.iloc[:, 4].astype(str).str.strip() == assigned_thana.strip()]
-                    idx = 1
-                    for _, row in df_thana_staff.iterrows():
-                        name_val = str(row.iloc[1]).strip()
-                        rank_val = str(row.iloc[2]).strip()
-                        pno_val = str(row.iloc[3]).split('.')[0].strip()
-                        display_text = f"{idx} | {name_val} | PNO: {pno_val} | {rank_val}"
-                        staff_options.append(display_text)
-                        staff_dict[display_text] = {"pno": pno_val, "name": name_val, "rank": rank_val}
-                        idx += 1
-                except: pass
+            except Exception as e: 
+                st.error(f"शीट रीन्डेक्स एरर: {str(e)}")
 
             selected_staff = st.selectbox("सूची से कर्मचारी चुनें (क्रम | नाम | PNO | पदनाम)", staff_options)
             pno, name, rank = "", "", ""
