@@ -124,7 +124,7 @@ if not st.session_state.logged_in:
             
     with col_title:
         st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
-        st.markdown("<h3 style='margin-top:0;'>दैनिक ड्यूटी मैनेजमेंट portal</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='margin-top:0;'>दैनिक ड्यूटी मैनेजमेंट पोर्टल</h3>", unsafe_allow_html=True)
     
     with st.container():
         username = st.text_input("यूज़रनेम (CUG नंबर या मास्टर आईडी)")
@@ -169,27 +169,23 @@ else:
             
             if st.button("🔍 लाइव डेटा सर्च / रीफ्रेश करें", type="primary", use_container_width=True):
                 try:
-                    # दोनों शीट को लोड करना (मास्टर स्ट्रेंथ कैलकुलेशन के लिए)
                     df_all_duties = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
                     df_master_strength = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
                     df_master_strength.columns = [str(c).strip() for c in df_master_strength.columns]
                     
-                    # 1. मास्टर लिस्ट से कुल स्वीकृत कर्मी संख्या निकालना (थाने के अनुसार या पूरे जनपद का)
                     if filter_thana == "सभी थाने":
                         total_allowed_strength = len(df_master_strength)
                     else:
                         total_allowed_strength = len(df_master_strength[df_master_strength.iloc[:, 4].astype(str).str.strip() == filter_thana.strip()])
 
-                    # फ़िल्टर्ड लाइव ड्यूटी डेटा प्राप्त करना
                     filtered_df = filter_duty_data(df_all_duties, filter_date, filter_thana, filter_duty)
                     
                     if not filtered_df.empty:
                         filtered_df.columns = [str(c).strip() for c in filtered_df.columns]
                         duty_col_check = next((c for c in filtered_df.columns if any(x in c.lower() for x in ['ड्यूटी', 'duty'])), None)
                         
-                        # 🎯 कैलकुलेशन लॉजिक
-                        total_fed_today = len(filtered_df) # आज जितने रिकॉर्ड दर्ज हुए
-                        not_fed_count = max(0, total_allowed_strength - total_fed_today) # जितने दर्ज नहीं हुए
+                        total_fed_today = len(filtered_df)
+                        not_fed_count = max(0, total_allowed_strength - total_fed_today)
                         
                         leave_count = 0
                         absent_count = 0
@@ -202,7 +198,6 @@ else:
                         
                         active_duty = total_fed_today - (leave_count + absent_count + sus_count)
                         
-                        # 📊 नया अपग्रेडेड 7-कॉलम डैशबोर्ड ग्रिड (पूरे जनपद या चुनिंदा थाने के लाइव गैप एनालिसिस के साथ)
                         st.markdown(f"<h5>📌 स्टैटिस्टिक्स रिपोर्ट: {filter_thana} ({filter_date.strftime('%d-%m-%Y')})</h5>", unsafe_allow_html=True)
                         m_col1, m_col2, m_col3, m_col4, m_col5, m_col6, m_col7 = st.columns(7)
                         
@@ -219,7 +214,6 @@ else:
                         filtered_df.index = filtered_df.index + 1
                         filtered_df.index.name = "क्रम सं०"
                     else:
-                        # यदि कोई भी डेटा दर्ज नहीं है तो केवल स्ट्रेंथ कार्ड्स दिखाना
                         m_col1, m_col2, m_col3 = st.columns(3)
                         m_col1.markdown(f"<div class='metric-card' style='border-left-color:#17a2b8;'><h6 style='margin:0;color:#17a2b8;'>कुल स्वीकृत कर्मी</h6><h2 style='margin:5px 0;color:#17a2b8;'>{total_allowed_strength}</h2></div>", unsafe_allow_html=True)
                         m_col2.markdown(f"<div class='metric-card' style='border-left-color:#002147;'><h6 style='margin:0;color:#002147;'>आज दर्ज कर्मी</h6><h2 style='margin:5px 0;color:#002147;'>0</h2></div>", unsafe_allow_html=True)
@@ -233,10 +227,20 @@ else:
             st.subheader("🔍 कर्मियों की खोज (स्मार्ट सर्च इंजन)")
             sc1, sc2, sc3 = st.columns([2, 2, 2])
             with sc1: search_master_thana = st.selectbox("थाना अनुसार फ़िल्टर", ["जनपद के सभी थाने"] + THANA_LIST, key="m_select")
-            with sc2: search_pno = st.text_input("PNO नंबर से खोजें (Exact/Partial)", "").strip()
+            with sc2: 
+                # PNO टेक्स्ट इनपुट बॉक्स
+                search_pno = st.text_input("PNO नंबर से खोजें (केवल अंक मान्य)", "").strip()
             with sc3: search_name = st.text_input("कर्मचारी के नाम से खोजें", "").strip()
             
-            if st.button("🔍 मास्टर सूची लोड / सर्च करें", use_container_width=True):
+            # 🎯 PNO इनपुट बॉक्स के लिए लाइव वैलिडेशन चेक लॉजिक
+            is_pno_valid = True
+            if search_pno:
+                if not search_pno.isdigit():
+                    st.error("⚠️ त्रुटि: कृपया PNO बॉक्स में केवल अंक (0-9) ही दर्ज करें! अक्षर या स्पेस मान्य नहीं हैं।")
+                    is_pno_valid = False
+
+            # यदि वैलिडेशन फेल होता है तो बटन को निष्क्रिय (Disable) रखने के लिए कंडीशन
+            if st.button("🔍 मास्टर सूची लोड / सर्च करें", use_container_width=True, disabled=not is_pno_valid):
                 try:
                     df_master = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
                     df_master.columns = [str(c).strip() for c in df_master.columns]
@@ -244,7 +248,7 @@ else:
                     if search_master_thana != "जनपद के सभी थाने":
                         df_master = df_master[df_master.iloc[:, 4].astype(str).str.strip() == search_master_thana.strip()]
                     
-                    if search_pno:
+                    if search_pno and is_pno_valid:
                         df_master = df_master[df_master.iloc[:, 1].astype(str).str.contains(search_pno, case=False, na=False)]
                         
                     if search_name:
@@ -261,7 +265,7 @@ else:
 
     # === थाना यूज़र व्यू ===
     else:
-        assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अज्ञात थाना")
+        assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अ未知 थाना")
         thana_tab1, thana_tab2 = st.tabs(["📝 दैनिक ड्यूटी feeding", "🔍 लाइव ड्यूटी देखें"])
         
         with thana_tab1:
