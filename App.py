@@ -5,7 +5,7 @@ import requests
 import time
 
 # =============================================================
-# चरण 1: पोर्टल कॉन्फ़िगरेशन और पुलिस 'यूनिफॉर्म' थीम (Khaki & Navy)
+# चरण 1: पोर्टल कॉन्फ़िगरेशन और पुलिस 'यूनिफॉर्म' थीम
 # =============================================================
 st.set_page_config(
     page_title="जिला पुलिस डेली ड्यूटी पोर्टल", 
@@ -13,10 +13,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# कैशे की पूरी तरह से सफाई ताकि लाइव डेटा ही दिखे
+# लाइव एक्सेल/गूगल शीट एंट्रीज तुरंत दिखाने के लिए कैशे क्लियरिंग
 st.cache_data.clear()
 
-# 👮 बलरामपुर पुलिस कस्टमाइज्ड थीम स्टाइलिंग
 st.markdown("""
     <style>
     .stApp, .main {
@@ -37,34 +36,19 @@ st.markdown("""
         border: 2px solid #d4af37 !important;
         border-radius: 6px !important;
         font-weight: bold !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
     }
-    .stButton>button:hover {
-        background-color: #800000 !important;
-        color: #ffffff !important;
-    }
-    .stTabs [data-baseweb="tab-list"] { background-color: #002147 !important; padding: 8px !important; }
-    .stTabs [data-baseweb="tab"] { color: #ffffff !important; font-weight: bold !important; }
-    .stTabs [aria-selected="true"] { background-color: #d4af37 !important; color: #002147 !important; }
-    h1, h2, h3, h4 { color: #002147 !important; font-weight: bold !important; }
     [data-testid="stDataFrame"] { background-color: #ffffff !important; border: 3px solid #002147 !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# 👮 जनपद बलरामपुर के समस्त थानों एवं इकाइयों की सूची
 THANA_LIST = [
     "कोतवाली नगर", "कोतवाली देहात", "तुलसीपुर", "गैसड़ी", "पचपेड़वा", "कोतवाली जरवा", 
     "महाराजगंज", "ललिया", "हरैया", "उतरौला", "सादुल्लानगर", "रेहरा बाज़ार", 
-    "गौरा चौराहा", "गैड़ास बुजुर्ग", "श्रीदत्तगंज", "ए0एच0टी0 थाना", "रिजर्व पुलिस line", "महिला थाना", "साइबर क्राइम थाना"
+    "गौरा चौराха", "गैड़ास बुजुर्ग", "श्रीदत्तगंज", "ए0एच0टी0 थाना", "रिजर्व पुलिस line", "महिला थाना", "साइबर क्राइम थाना"
 ]
 
-DUTY_TYPES = [
-    "लॉ एंड ओरडर (L&O)", "वीआईपी (VIP) – ड्यूटी", "पिकेट/गश्त", "कोर्ट ड्यूटी", 
-    "समन तामीला", "तफ्तीश/जांच", "आकस्मिक अवकाश", "प्रसूति अवकाश", 
-    "सामान्य अवकाश", "मेडिकल अवकाश", "गैर हाजिर", "निलम्बित", "अन्य"
-]
+DUTY_TYPES = ["लॉ एंड ओरडर (L&O)", "वीआईपी (VIP) – ड्यूटी", "पिकेट/गश्त", "कोर्ट ड्यूटी", "समन तामीला", "तफ्तीश/जांच", "आकस्मिक अवकाश", "सामान्य अवकाश", "गैर हाजिर", "निलम्बित", "अन्य"]
 
-# सुरक्षित लॉगिन क्रेडेंशियल्स
 USER_CREDENTIALS = {
     "hq_master":  "hq@123", "9454403019": "thana@3019", "9454403020": "thana@3020",
     "9454404895": "thana@4895", "9454403022": "thana@3022", "9454403025": "thana@3025",
@@ -75,14 +59,13 @@ USER_CREDENTIALS = {
     "7839855506": "thana@5506", "7839855004": "thana@5004"
 }
 
-# CUG नंबर के अनुसार थानों का मैपिंग लॉजिक
 THANA_MAPPING = {
     "9454403019": "कोतवाली नगर", "9454403020": "कोतवाली देहात", "9454404895": "महिला थाना",
     "9454403022": "गौरा चौराहा", "9454403025": "ललिया", "9454403023": "हरैया",
     "9454403026": "महाराजगंज", "9454403030": "तुलसीपुर", "9454403021": "गैसड़ी",
     "9454403024": "कोतवाली जरवा", "9454403027": "पचपेड़वा", "9454403031": "उतरौला",
     "7317724235": "श्रीदत्तगंज", "7398638787": "गैड़ास बुजुर्ग", "9454403028": "रेहरा बाज़ार",
-    "9454403039": "सादुल्लानगर", "9454402345": "रिजर्व पुलिस लाइन", "7839855506": "ए0एच0टी0 थाना",
+    "9454403039": "सादुल्लानगर", "9454402345": "रिजर्व पुलिस line", "7839855506": "ए0एच0टी0 थाना",
     "7839855004": "साइबर क्राइम थाना"
 }
 
@@ -90,29 +73,18 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user_role = None
 
-# 🛠️ 100% फुलप्रूफ डायनेमिक फ़िल्टर इंजन
 def filter_duty_data(df, selected_date, selected_thana, selected_duty):
-    if df.empty:
-        return df
-    
+    if df.empty: return df
     filtered_df = df.copy()
     filtered_df.columns = [str(c).strip() for c in filtered_df.columns]
     
     date_col, thana_col, duty_col = None, None, None
-    
-    # कॉलम ढूंढने का स्मार्ट तरीका
     for c in filtered_df.columns:
         c_low = c.lower()
-        if any(x in c_low for x in ['तारीख', 'दिनांक', 'date', 'timestamp', 'time']):
-            date_col = c
-        if any(x in c_low for x in ['थाना', 'thana', 'इकाई', 'unit', 'place']):
-            thana_col = c
-        elif filtered_df[c].astype(str).str.contains('|'.join(THANA_LIST), case=False, na=False).any():
-            thana_col = c
-        if any(x in c_low for x in ['ड्यूटी', 'duty', 'प्रकार', 'status', 'विवरण']):
-            duty_col = c
+        if any(x in c_low for x in ['तारीख', 'दिनांक', 'date', 'timestamp', 'time']): date_col = c
+        if any(x in c_low for x in ['थाना', 'thana', 'इकाई', 'unit']): thana_col = c
+        if any(x in c_low for x in ['ड्यूटी', 'duty', 'प्रकार']): duty_col = c
 
-    # 1. ⏱️ टाइमस्टैम्प से केवल तारीख निकालकर मैच करना (ताकि समय रुकावट न बने)
     if date_col:
         try:
             filtered_df['parsed_date_internal'] = pd.to_datetime(filtered_df[date_col], errors='coerce').dt.date
@@ -120,54 +92,41 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
             filtered_df = filtered_df.drop(columns=['parsed_date_internal'])
         except Exception:
             d_dash = selected_date.strftime("%d-%m-%Y")
-            d_slash = selected_date.strftime("%d/%m/%Y")
-            d_short_slash = f"{int(selected_date.strftime('%d'))}/{int(selected_date.strftime('%m'))}/{selected_date.strftime('%Y')}"
-            def match_date_fallback(val):
-                s = str(val).strip()
-                return any(f in s for f in [d_dash, d_slash, d_short_slash])
-            filtered_df = filtered_df[filtered_df[date_col].apply(match_date_fallback)]
+            filtered_df = filtered_df[filtered_df[date_col].astype(str).str.contains(d_dash)]
 
-    # 2. 🎯 थाना फ़िल्टर (केवल तभी काम करेगा जब "सभी थाने" न हो)
     if selected_thana and selected_thana != "सभी थाने" and thana_col:
         short_name = selected_thana.replace("कोतवाली", "").strip()
-        def match_thana(val):
-            s = str(val).strip().lower()
-            if not s or s == 'nan': return False
-            return (selected_thana.lower() in s or short_name.lower() in s)
-        filtered_df = filtered_df[filtered_df[thana_col].apply(match_thana)]
+        filtered_df = filtered_df[filtered_df[thana_col].astype(str).str.contains(short_name, case=False, na=False)]
 
-    # 3. ड्यूटी फ़िल्टर
     if selected_duty and selected_duty != "सभी ड्यूटी" and duty_col:
-        def match_duty(val):
-            s = str(val).strip().lower()
-            if not s or s == 'nan': return False
-            return (str(selected_duty).lower() in s)
-        filtered_df = filtered_df[filtered_df[duty_col].apply(match_duty)]
+        filtered_df = filtered_df[filtered_df[duty_col].astype(str).str.contains(str(selected_duty), case=False, na=False)]
             
     return filtered_df
 
-SP_PHOTO_URL = "https://drive.google.com/file/d/1F96XGFoFst9RPcvjqet1SCpy4HiK6Qdu/view?usp=drive_link"
+SP_PHOTO_URL = "https://docs.google.com/uc?export=view&id=1A_bC_D_EFG_HIJKLMNOP" 
 
 # =============================================================
-# चरण 2: सुरक्षित लॉगिन गेटवे
+# चरण 2: लॉगिन गेटवे
 # =============================================================
 if not st.session_state.logged_in:
     col_logo, col_title = st.columns([1, 4])
-    with col_logo: st.image(SP_PHOTO_URL, width=135)
+    with col_logo: 
+        try: st.image(SP_PHOTO_URL, width=135)
+        except Exception: st.markdown("<h1 style='font-size: 80px; margin: 0;'>👮</h1>", unsafe_allow_html=True)
+            
     with col_title:
-        st.markdown("<h1 style='color:#002147;'>🚨 उत्तर प्रदेश police | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
-        st.markdown("<h3>दैनिक ड्यूटी मैनेजमेंट फीडिंग एवं मॉनिटरिंग पोर्टल</h3>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h3 style='margin-top:0;'>दैनिक ड्यूटी मैनेजमेंट पोर्टल</h3>", unsafe_allow_html=True)
     
     with st.container():
-        username = st.text_input("यूज़रनेम (CUG नंबर या मास्टर आईडी)", key="login_username")
-        password = st.text_input("पासवर्ड (Password)", type="password", key="login_password")
+        username = st.text_input("यूज़रनेम (CUG नंबर या मास्टर आईडी)")
+        password = st.text_input("पासवर्ड (Password)", type="password")
         if st.button("🔓 पोर्टल में प्रवेश करें", use_container_width=True):
             if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
                 st.session_state.logged_in = True
                 st.session_state.user_role = username
                 st.rerun()
-            else:
-                st.error("❌ गलत लॉगिन विवरण।")
+            else: st.error("❌ गलत लॉगिन विवरण।")
 
 # =============================================================
 # चरण 3: मुख्य सुरक्षित क्षेत्र
@@ -184,8 +143,10 @@ else:
     st.markdown("<hr style='border:1px solid #002147;'>", unsafe_allow_html=True)
 
     live_t = int(time.time())
-    DYNAMIC_DUTY_SHEET_URL = f"https://docs.google.com/spreadsheets/d/1WFvkW8CXYIN_bKJWN5m7Ieh814LlFLjYqZVpjivJhdA/export?format=csv&gid=127153860&cache_bypass={live_t}"
-    DYNAMIC_MASTER_SHEET_URL = f"https://docs.google.com/spreadsheets/d/1WFvkW8CXYIN_bKJWN5m7Ieh814LlFLjYqZVpjivJhdA/export?format=csv&gid=0&cache_bypass={live_t}"
+    SPREADSHEET_ID = "1WFvkW8CXYIN_bKJWN5m7Ieh814LlFLjYqZVpjivJhdA"
+    
+    DYNAMIC_DUTY_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=127153860&cache_bypass={live_t}"
+    DYNAMIC_MASTER_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=0&cache_bypass={live_t}"
 
     # === मुख्यालय मास्टर व्यू ===
     if st.session_state.user_role == "hq_master":
@@ -194,139 +155,162 @@ else:
         
         with tab1:
             col1, col2, col3 = st.columns(3)
-            with col1: filter_date = st.date_input("तारीख", datetime.now().date(), key="hq_d")
+            with col1: filter_date = st.date_input("तاریख", datetime.now().date(), key="hq_d")
             with col2: filter_thana = st.selectbox("थाना", ["सभी थाने"] + THANA_LIST, key="hq_t")
             with col3: filter_duty = st.selectbox("ड्यूटी प्रकार", ["सभी ड्यूटी"] + DUTY_TYPES, key="hq_du")
             
             if st.button("🔍 लाइव डेटा सर्च / रीफ्रेश करें", type="primary", use_container_width=True):
                 try:
-                    df_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
-                    filtered_df = filter_duty_data(df_duty, filter_date, filter_thana, filter_duty)
+                    df_all_duties = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
+                    df_all_duties.columns = [str(c).strip() for c in df_all_duties.columns]
+                    
+                    # सभी थानों के अलग-अलग टैब से डेटा खींचकर मास्टर में मिलाना
+                    for t_name in THANA_LIST:
+                        try:
+                            bulk_url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet={t_name}&cache_bypass={live_t}"
+                            df_t_bulk = pd.read_csv(bulk_url)
+                            if not df_t_bulk.empty:
+                                df_t_bulk.columns = [str(c).strip() for c in df_t_bulk.columns]
+                                if not any(x in ''.join(df_t_bulk.columns).lower() for x in ['थाना', 'thana']):
+                                    df_t_bulk['Thana'] = t_name
+                                df_all_duties = pd.concat([df_all_duties, df_t_bulk], ignore_index=True)
+                        except Exception: pass
+
+                    filtered_df = filter_duty_data(df_all_duties, filter_date, filter_thana, filter_duty)
+                    
+                    # 🔍 [जादू चालू] क्रम संख्या को फ़िल्टर के हिसाब से हमेशा 1 से शुरू करना 🔍
+                    if not filtered_df.empty:
+                        filtered_df = filtered_df.reset_index(drop=True)
+                        filtered_df.index = filtered_df.index + 1
+                        filtered_df.index.name = "क्रम सं०"
                     
                     st.success(f"📊 रिकॉर्ड लोड हो गया है [कुल: {len(filtered_df)} रिकॉर्ड]")
                     st.dataframe(filtered_df, use_container_width=True)
-                except Exception as e:
-                    st.error(f"कनेक्शन फेल: {e}")
+                except Exception as e: st.error(f"कनेक्शन फेल: {e}")
 
         with tab2:
-            st.subheader("👮 थाना वार पुलिसकर्मी सूची (मास्टर रिकॉर्ड)")
-            search_master_thana = st.selectbox("थाना चुनें", ["जनपद के सभी थाने"] + THANA_LIST, key="master_thana_dropdown")
-            
-            if st.button("🔍 मास्टर सूची लोड करें", use_container_width=True, key="load_master_btn"):
+            search_master_thana = st.selectbox("थाना चुनें", ["जनपद के सभी थाने"] + THANA_LIST, key="m_select")
+            if st.button("🔍 मास्टर सूची लोड करें", use_container_width=True):
                 try:
                     df_master = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
                     df_master.columns = [str(c).strip() for c in df_master.columns]
-                    df_master = df_master.fillna("").astype(str)
-                    
                     if search_master_thana != "जनपद के सभी थाने":
-                        thana_col_m = None
-                        for col_m in df_master.columns:
-                            if any(x in col_m.lower() for x in ['थाना', 'thana', 'इकाई', 'unit']):
-                                thana_col_m = col_m
-                                break
+                        short_search = search_master_thana.replace("कोतवाली", "").strip()
+                        thana_col_m = next((c for c in df_master.columns if 'थाना' in c or 'thana' in c.lower()), df_master.columns[0])
+                        df_master = df_master[df_master[thana_col_m].astype(str).str.contains(short_search, case=False, na=False)]
+                    
+                    # मास्टर लिस्ट के लिए भी क्रम संख्या 1 से सेट करना
+                    if not df_master.empty:
+                        df_master = df_master.reset_index(drop=True)
+                        df_master.index = df_master.index + 1
+                        df_master.index.name = "क्रम सं०"
                         
-                        if thana_col_m:
-                            short_search_name = search_master_thana.replace("कोतवाली", "").strip()
-                            filtered_master = df_master[df_master[thana_col_m].str.contains(short_search_name, case=False, na=False)]
-                        else:
-                            short_search_name = search_master_thana.replace("कोतवाली", "").strip()
-                            filtered_master = df_master[df_master.apply(lambda r: r.str.contains(short_search_name, case=False)).any(axis=1)]
-                    else:
-                        filtered_master = df_master.copy()
-                        
-                    st.success(f"🗂️ {search_master_thana} का मास्टर रिकॉर्ड [कुल: {len(filtered_master)} पुलिसकर्मी]")
-                    st.dataframe(filtered_master, use_container_width=True)
-                except Exception as e: 
-                    st.error(f"त्रुटि: {e}")
+                    st.dataframe(df_master, use_container_width=True)
+                except Exception as e: st.error(str(e))
 
-    # === थाना यूजर व्यू ===
+    # === थाना यूजर व्यू (स्मार्ट डिसेबल सुरक्षा गार्ड के साथ) ===
     else:
         assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अज्ञात थाना")
         thana_tab1, thana_tab2 = st.tabs(["📝 ड्यूटी फीड करें", "🔍 लाइव ड्यूटी देखें"])
         
+        # बैकएंड डेटा लोडिंग (स्मार्ट चेकिंग के लिए)
+        df_thana_duty = pd.DataFrame()
+        try:
+            df_thana_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
+            df_thana_duty.columns = [str(c).strip() for c in df_thana_duty.columns]
+            
+            specific_bulk_url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet={assigned_thana}&cache_bypass={live_t}"
+            df_b_spec = pd.read_csv(specific_bulk_url)
+            if not df_b_spec.empty:
+                df_b_spec.columns = [str(c).strip() for c in df_b_spec.columns]
+                if not any(x in ''.join(df_b_spec.columns).lower() for x in ['थाना', 'thana']):
+                    df_b_spec['Thana'] = assigned_thana
+                df_thana_duty = pd.concat([df_thana_duty, df_b_spec], ignore_index=True)
+        except Exception: pass
+
         with thana_tab1:
             st.subheader(f"फीडिंग फॉर्म - {assigned_thana}")
+            st.info(f"💡 **शॉर्टकट एक्सेल तरीका चालू है:** मुंशी जी, आप सीधे अपनी गूगल शीट के टैब **'{assigned_thana}'** में जाकर पूरे थाने का डेटा खटाखट सेलेक्ट कर सकते हैं।")
+            
             staff_options = ["-- चुनें / Select Staff --"]
             staff_dict = {}
             try:
                 df_all_staff = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
                 df_all_staff.columns = [str(c).strip() for c in df_all_staff.columns]
-                df_all_staff = df_all_staff.fillna("").astype(str)
-                
-                thana_col_staff = None
-                for c_st in df_all_staff.columns:
-                    if any(x in c_st.lower() for x in ['थाना', 'thana', 'unit']):
-                        thana_col_staff = c_st
-                        break
-                
-                if thana_col_staff:
-                    short_assigned = assigned_thana.replace("कोतवाली", "").strip()
-                    df_thana_staff = df_all_staff[df_all_staff[thana_col_staff].str.contains(short_assigned, case=False, na=False)]
-                else:
-                    df_thana_staff = df_all_staff.copy()
+                short_assigned = assigned_thana.replace("कोतवाली", "").strip()
+                thana_col_staff = next((c for c in df_all_staff.columns if 'थाना' in c or 'thana' in c.lower()), df_all_staff.columns[0])
+                df_thana_staff = df_all_staff[df_all_staff[thana_col_staff].astype(str).str.contains(short_assigned, case=False, na=False)]
                 
                 for _, row in df_thana_staff.iterrows():
-                    col_list = list(df_all_staff.columns)
-                    pno_col = next((c for c in col_list if any(x in c.lower() for x in ['pno', 'नंबर', 'न०', 'पेनो'])), col_list[0])
-                    name_col = next((c for c in col_list if any(x in c.lower() for x in ['नाम', 'name', 'कर्मी'])), col_list[1])
-                    
-                    # 🛠️ पदनाम कॉलम ढूंढने का सबसे मजबूत लॉजिक (यहाँ फिक्स किया गया है)
-                    rank_col = next((c for c in col_list if any(x in c.lower() for x in ['पद', 'rank', 'designation', 'ओहदा', 'status'])), None)
-                    
-                    pno_val = str(row[pno_col]).split('.')[0]
-                    
-                    # गूगल शीट से वास्तविक पदनाम उठाना
-                    if rank_col and str(row[rank_col]).strip() != "":
-                        actual_rank = str(row[rank_col]).strip()
-                    else:
-                        actual_rank = "आरक्षी"  # सिर्फ डेटा न होने पर ही आरक्षी आएगा
-                    
-                    display_text = f"{pno_val} | {row[name_col]} | {actual_rank}"
+                    pno_val = str(row.iloc[0]).split('.')[0]
+                    display_text = f"{pno_val} | {row.iloc[1]}"
                     staff_options.append(display_text)
-                    staff_dict[display_text] = {"pno": pno_val, "name": row[name_col], "rank": actual_rank}
-            except Exception as e: 
-                pass
+                    staff_dict[display_text] = {"pno": pno_val, "name": row.iloc[1], "rank": "आरक्षी"}
+            except Exception: pass
 
-            selected_staff = st.selectbox("सूची से कर्मचारी चुनें", staff_options, key="thana_staff_select")
-            
+            selected_staff = st.selectbox("सूची से कर्मचारी चुनें", staff_options)
             pno, name, rank = "", "", ""
-            if selected_staff != "-- चुनें / Select Staff --" and selected_staff in staff_dict:
+            
+            submit_disabled = False
+            if selected_staff != "-- चुनें / Select Staff --":
                 pno = staff_dict[selected_staff]["pno"]
                 name = staff_dict[selected_staff]["name"]
                 rank = staff_dict[selected_staff]["rank"]
-
-            st.markdown("---")
-            duty_type = st.selectbox("ड्यूटी / अवकाश का प्रकार", DUTY_TYPES, key="dynamic_duty_type_select")
-            
-            with st.form("submission_form", clear_on_submit=True):
-                st.write(f"चयनित पद/नाम: **{rank} {name} ({pno})**")
                 
-                if st.form_submit_button("🚀 रिकॉर्ड सबमिट करें", type="primary", use_container_width=True):
-                    if name and pno and rank:
+                # 🧠 🚨 **स्मार्ट सुरक्षा गार्ड लॉजिक (Validation Rules)** 🚨 🧠
+                today_dt = datetime.now().date()
+                yesterday_dt = today_dt - timedelta(days=1)
+                tomorrow_dt = today_dt + timedelta(days=1)
+
+                if not df_thana_duty.empty:
+                    # नियम 1: क्या आज ड्यूटी पहले ही लग चुकी है?
+                    already_done = df_thana_duty[
+                        (df_thana_duty['PNO'].astype(str) == str(pno)) & 
+                        (pd.to_datetime(df_thana_duty['Date'], errors='coerce').dt.date == today_dt)
+                    ]
+                    
+                    # नियम 2: क्या कर्मी अवकाश/बफर पीरियड में है?
+                    on_leave = df_thana_duty[
+                        (df_thana_duty['PNO'].astype(str) == str(pno)) & 
+                        (df_thana_duty['Duty'].str.contains('अवकाश', na=False, case=False)) & 
+                        (pd.to_datetime(df_thana_duty['Date'], errors='coerce').dt.date.isin([yesterday_dt, today_dt, tomorrow_dt]))
+                    ]
+
+                    if not already_done.empty:
+                        st.error(f"❌ आरक्षी {name} की ड्यूटी आज पहले ही दर्ज की जा चुकी है! रिपीटीशन प्रतिबंधित है।")
+                        submit_disabled = True
+                    elif not on_leave.empty:
+                        st.warning(f"⚠️ आरक्षी {name} अवकाश पर हैं (या आगे/पीछे के 1 दिन के सुरक्षा बफर में हैं)। ड्यूटी लॉक है।")
+                        submit_disabled = True
+
+            # अगर ड्यूटी लॉक है, तो ड्यूटी चुनने का विकल्प डिसेबल हो जाएगा
+            if submit_disabled:
+                duty_type = st.selectbox("ड्यूटी / अवकाश का प्रकार", ["🚫 प्रतिबंधित (Locked)"], disabled=True)
+            else:
+                duty_type = st.selectbox("ड्यूटी / अवकाश का प्रकार", DUTY_TYPES)
+                
+            with st.form("sub_form", clear_on_submit=True):
+                # बटन को लॉक या अनलॉक रखना
+                if st.form_submit_button("🚀 सिंगल रिकॉर्ड सबमिट करें", type="primary", disabled=submit_disabled, use_container_width=True):
+                    if name and pno and not submit_disabled:
                         form_url = "https://docs.google.com/forms/d/e/1FAIpQLSecM8onnA6CMYAtkzIGcRhxSAfnUtdKd9NM8Jxxv4bzajHovA/formResponse"
-                        payload = {
-                            "entry.154343115": pno, 
-                            "entry.2122326148": name, 
-                            "entry.1503406512": rank, # अब वास्तविक पदनाम (जैसे: उपनिरीक्षक, मुख्य आरक्षी) ही फॉर्म में जाएगा
-                            "entry.926857669": assigned_thana, 
-                            "entry.88588834": duty_type
-                        }
+                        payload = {"entry.154343115": pno, "entry.2122326148": name, "entry.1503406512": rank, "entry.926857669": assigned_thana, "entry.88588834": duty_type}
                         try:
-                            res = requests.post(form_url, data=payload)
-                            st.success(f"✔️ {rank} {name} का रिकॉर्ड सफलतापूर्वक दर्ज हो गया है!")
-                        except: 
-                            st.error("सबमिशन फेल हुआ। कृपया इंटरनेट कनेक्शन जांचें।")
-                    else:
-                        st.error("❌ कृपया फॉर्म सबमिट करने से पहले ऊपर सूची से कर्मचारी चुनें!")
+                            requests.post(form_url, data=payload)
+                            st.success(f"✔️ {name} का रिकॉर्ड दर्ज हो गया है!")
+                            time.sleep(1)
+                            st.rerun()
+                        except: st.error("कनेक्शन फेल हुआ।")
 
         with thana_tab2:
-            thana_filter_date = st.date_input("तारीख चुनें", datetime.now().date(), key="th_view_d")
-            if st.button("🔄 अपने थाने का रिकॉर्ड देखें / रीफ्रेश करें", type="primary", use_container_width=True):
-                try:
-                    df_thana_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
-                    final_thana_df = filter_duty_data(df_thana_duty, thana_filter_date, assigned_thana, "सभी ड्यूटी")
+            thana_filter_date = st.date_input("तारीख चुनें", datetime.now().date(), key="th_v_d")
+            if st.button("🔄 रिकॉर्ड देखें / रीफ्रेश", type="primary", use_container_width=True):
+                final_thana_df = filter_duty_data(df_thana_duty, thana_filter_date, assigned_thana, "सभी ड्यूटी")
+                
+                # 🔍 [जादू चालू] थाना व्यू में भी क्रम संख्या हमेशा 1 से शुरू करना 🔍
+                if not final_thana_df.empty:
+                    final_thana_df = final_thana_df.reset_index(drop=True)
+                    final_thana_df.index = final_thana_df.index + 1
+                    final_thana_df.index.name = "क्रम सं०"
                     
-                    st.success(f"📊 केवल **{assigned_thana}** का लाइव रिकॉर्ड [कुल: {len(final_thana_df)} रिकॉर्ड]:")
-                    st.dataframe(final_thana_df, use_container_width=True)
-                except Exception as e: 
-                    st.error(str(e))
+                st.dataframe(final_thana_df, use_container_width=True)
