@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import requests
 import time
+import random
 
 # =============================================================
 # चरण 1: पोर्टल कॉन्फ़िगरेशन और पुलिस 'यूनिफॉर्म' थीम
@@ -56,7 +57,10 @@ THANA_LIST = [
     "गौरा चौराहा", "गैड़ास बुजुर्ग", "श्रीदत्तगंज", "ए0एच0टी0 थाना", "रिजर्व पुलिस line", "महिला थाना", "साइबर क्राइम थाना"
 ]
 
-DUTY_TYPES = ["लॉ एंड ओरडर (L&O)", "वीआईपी (VIP) – ड्यूटी", "पिकेट/गश्त", "कोर्ट ड्यूटी", "समन तामीला", "तफ्तीश/जांच","चाइल्ड केयर अवकाश", "पितृत्व अवकाश", "मातृत्व अवकाश", "आकस्मिक अवकाश","प्रसूति अवकाश", "उपार्जित अवकाश", "सामान्य अवकाश", "गैर हाजिर", "निलम्बित", "अन्य"]
+DUTY_TYPES = ["लॉ एंड ओरडर (L&O)", "वीआईपी (VIP) – ड्यूटी", "पिकेट/गश्त", "कोर्ट ड्यूटी", "समन तामीला", "तफ्तीश/जांच","चाइल्डケア अवकाश", "पितृत्व अवकाश", "मातृत्व अवकाश", "आकस्मिक अवकाश","प्रसूति अवकाश", "उपार्जित अवकाश", "सामान्य अवकाश", "गैर हाजिर", "निलम्बित", "अन्य"]
+
+# रैंडम ड्यूटी के लिए केवल एक्टिव ड्यूटियों की सूची
+ACTIVE_DUTY_OPTIONS = ["लॉ एंड ओरडर (L&O)", "वीआईपी (VIP) – ड्यूटी", "पिकेट/गश्त", "कोर्ट ड्यूटी", "समन तामीला", "तफ्तीश/जांच"]
 
 USER_CREDENTIALS = {
     "hq_master":  "hq@123", "9454403019": "thana@3019", "9454403020": "thana@3020",
@@ -114,7 +118,7 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
 SP_PHOTO_URL = "https://docs.google.com/uc?export=view&id=1A_bC_D_EFG_HIJKLMNOP" 
 
 # =============================================================
-# चरण 2: लॉगिन गेटवे (यहाँ हमने स्पेस क्लीनर अपडेट कर दिया है)
+# चरण 2: लॉगिन गेटवे (स्पेस क्लीनर के साथ)
 # =============================================================
 if not st.session_state.logged_in:
     col_logo, col_title = st.columns([1, 4])
@@ -123,21 +127,18 @@ if not st.session_state.logged_in:
         except Exception: st.markdown("<h1 style='font-size: 80px; margin: 0;'>👮</h1>", unsafe_allow_html=True)
             
     with col_title:
-        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश police | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='margin-top:0;'>दैनिक ड्यूटी मैनेजमेंट पोर्टल</h3>", unsafe_allow_html=True)
     
     with st.container():
         username = st.text_input("यूज़रनेम (CUG नंबर या मास्टर आईडी)")
         password = st.text_input("पासवर्ड (Password)", type="password")
         if st.button("🔓 पोर्टल में प्रवेश करें", use_container_width=True):
-            
-            # 🎯 ब्राउज़र ऑटोफ़िल के छुपे हुए स्पेस को हटाने का लॉजिक
             clean_username = username.strip()
             clean_password = password.strip()
-            
             if clean_username in USER_CREDENTIALS and USER_CREDENTIALS[clean_username] == clean_password:
                 st.session_state.logged_in = True
-                st.session_state.user_role = clean_username # बिना स्पेस वाला शुद्ध यूज़रनेम सेव होगा
+                st.session_state.user_role = clean_username
                 st.rerun()
             else: st.error("❌ गलत लॉगिन विवरण।")
 
@@ -164,7 +165,7 @@ else:
     # === मुख्यालय मास्टर व्यू ===
     if st.session_state.user_role == "hq_master":
         st.header("📊 मुख्यालय मॉनिटरिंग डैशबोर्ड (Master Page)")
-        tab1, tab2 = st.tabs(["📋 लाइव ड्यूटी मॉनिटर", "👮 कर्मी विवरण एवं स्मार्ट सर्च"])
+        tab1, tab2, tab3 = st.tabs(["📋 लाइव ड्यूटी मॉनिटर", "👮 कर्मी विवरण एवं स्मार्ट सर्च", "🎯 स्वचालित रैंडम ड्यूटी अलॉटमेंट"])
         
         with tab1:
             col1, col2, col3 = st.columns(3)
@@ -232,11 +233,9 @@ else:
             st.subheader("🔍 कर्मियों की खोज (स्मार्ट सर्च इंजन)")
             sc1, sc2, sc3 = st.columns([2, 2, 2])
             with sc1: search_master_thana = st.selectbox("थाना अनुसार फ़िल्टर", ["जनपद के सभी थाने"] + THANA_LIST, key="m_select")
-            with sc2: 
-                search_pno = st.text_input("PNO नंबर से खोजें (केवल अंक मान्य)", "").strip()
+            with sc2: search_pno = st.text_input("PNO नंबर से खोजें (केवल अंक मान्य)", "").strip()
             with sc3: search_name = st.text_input("कर्मचारी के नाम से खोजें", "").strip()
             
-            # PNO इनपुट बॉक्स के लिए लाइव वैलिडेशन चेक
             is_pno_valid = True
             if search_pno:
                 if not search_pno.isdigit():
@@ -266,9 +265,125 @@ else:
                     st.dataframe(df_master, use_container_width=True)
                 except Exception as e: st.error(str(e))
 
+        # === 🎯 नया चरण: स्वचालित रैंडम ड्यूटी अलॉटमेंट टैब ===
+        with tab3:
+            st.subheader("🎯 मुख्यालय रैंडम ड्यूटी अलॉटमेंट पैनल")
+            st.info("यह सिस्टम आज की तारीख में छुट्टी/गैर-हाजिर/निलम्बित कर्मियों को छोड़कर बाकी बचे सभी कर्मियों की रैंडम ड्यूटी ऑटो-अलॉट कर देगा।")
+            
+            rc1, rc2 = st.columns(2)
+            with rc1:
+                target_thana = st.selectbox("किस थाने की ड्यूटी लगानी है?", ["सभी थाने"] + THANA_LIST, key="rand_th")
+            with rc2:
+                selected_duties_for_random = st.multiselect(
+                    "किन-किन एक्टिव ड्यूटियों में कर्मियों को बांटना है?", 
+                    ACTIVE_DUTY_OPTIONS, 
+                    default=["लॉ एंड ओरडर (L&O)", "पिकेट/गश्त", "तफ्तीश/जांच"]
+                )
+                
+            random_remark = st.text_input("📋 रैंडम ड्यूटी के लिए कॉमन रिमार्क (जैसे: 'आदेशानुसार मुख्यालय' या 'विशेष पिकेट')").strip()
+
+            if st.button("🚀 वन-क्लिक स्वचालित रैंडम ड्यूटी लगाएं", use_container_width=True, type="primary"):
+                if not selected_duties_for_random:
+                    st.error("❌ कृपया कम से कम एक ड्यूटी प्रकार अवश्य चुनें!")
+                else:
+                    with st.spinner("⏳ लाइव डेटाबेस का विश्लेषण और रैंडम अलॉटमेंट जारी है..."):
+                        try:
+                            # 1. डेटा डाउनलोड करना
+                            df_live_duties = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
+                            df_master_list = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
+                            
+                            df_live_duties.columns = [str(c).strip() for c in df_live_duties.columns]
+                            df_master_list.columns = [str(c).strip() for c in df_master_list.columns]
+                            
+                            # आज की तारीख में छुट्टी/गैरहाजिर वाले PNO की पहचान करना
+                            today_str = datetime.now().date()
+                            excluded_pnos = set()
+                            
+                            d_col = next((c for c in df_live_duties.columns if any(x in c.lower() for x in ['तारीख', 'दिनांक', 'date', 'timestamp'])), None)
+                            p_col = next((c for c in df_live_duties.columns if any(x in c.lower() for x in ['pno', 'पीएनओ', 'नम्बर'])), None)
+                            du_col = next((c for c in df_live_duties.columns if any(x in c.lower() for x in ['ड्यूटी', 'duty'])), None)
+                            
+                            if d_col and p_col and du_col:
+                                df_live_duties['temp_date'] = pd.to_datetime(df_live_duties[d_col], errors='coerce').dt.date
+                                today_records = df_live_duties[df_live_duties['temp_date'] == today_str]
+                                
+                                for _, r in today_records.iterrows():
+                                    duty_str = str(r[du_col])
+                                    pno_str = str(r[p_col]).split('.')[0].strip()
+                                    # अगर पहले से छुट्टी, गैरहाजिर या निलम्बित है तो एक्सक्लूड लिस्ट में डालें
+                                    if any(x in duty_str for x in ["अवकाश", "गैर हाजिर", "निलम्बित"]):
+                                        excluded_pnos.add(pno_str)
+                            
+                            # 2. उपलब्ध कर्मियों की सूची तैयार करना
+                            if target_thana != "सभी थाने":
+                                eligible_staff = df_master_list[df_master_list.iloc[:, 4].astype(str).str.strip() == target_thana.strip()]
+                            else:
+                                eligible_staff = df_master_list.copy()
+                                
+                            available_pool = []
+                            for _, row in eligible_staff.iterrows():
+                                pno_val = str(row.iloc[1]).split('.')[0].strip()
+                                name_val = str(row.iloc[2]).strip()
+                                rank_val = str(row.iloc[3]).strip()
+                                thana_val = str(row.iloc[4]).strip()
+                                
+                                # यदि पहले से छुट्टी पर नहीं है तो पूल में जोड़ें
+                                if pno_val not in excluded_pnos:
+                                    available_pool.append({
+                                        "pno": pno_val, "name": name_val, "rank": rank_val, "thana": thana_val
+                                    })
+                                    
+                            if not available_pool:
+                                st.warning("⚠️ कोई उपलब्ध कर्मी नहीं मिला! (या तो सभी पहले से छुट्टी/ड्यूटी पर हैं या मास्टर सूची खाली है)")
+                            else:
+                                st.success(f"🎯 कुल {len(available_pool)} एक्टिव कर्मी ड्यूटी आवंटन के लिए उपलब्ध मिले!")
+                                
+                                # 3. रैंडम मिक्सिंग (सफलिंग) लॉजिक
+                                random.shuffle(available_pool)
+                                
+                                form_url = "https://docs.google.com/forms/d/e/1FAIpQLSecM8onnA6CMYAtkzIGcRhxSAfnUtdKd9NM8Jxxv4bzajHovA/formResponse"
+                                success_count = 0
+                                
+                                progress_bar = st.progress(0)
+                                status_text = st.empty()
+                                
+                                # 4. ड्यूटी एलोकेशन और सबमिशन लूप
+                                for idx, person in enumerate(available_pool):
+                                    # रैंडम चुनी हुई ड्यूटी में से एक असाइन करना
+                                    assigned_random_duty = random.choice(selected_duties_for_random)
+                                    if random_remark:
+                                        assigned_random_duty = f"{assigned_random_duty} - [{random_remark}]"
+                                        
+                                    payload = {
+                                        "entry.154343115": person["pno"], 
+                                        "entry.2122326148": person["name"], 
+                                        "entry.1503406512": person["rank"], 
+                                        "entry.926857669": person["thana"], 
+                                        "entry.88588834": assigned_random_duty
+                                    }
+                                    
+                                    try:
+                                        requests.post(form_url, data=payload)
+                                        success_count += 1
+                                    except:
+                                        pass
+                                        
+                                    # प्रोग्रेस अपडेट
+                                    pct = int(((idx + 1) / len(available_pool)) * 100)
+                                    progress_bar.progress(pct)
+                                    status_text.text(f"⏳ रिकॉर्ड फीड हो रहा है: {idx+1}/{len(available_pool)} ({person['name']})")
+                                    time.sleep(0.1) # सर्वर थ्रॉटलिंग से बचने के लिए छोटा पॉज
+                                    
+                                st.balloons()
+                                st.success(f"✔️ बधाई हो! कुल {success_count} कर्मियों की रैंडम ड्यूटी सफलतापूर्वक गूगल शीट में फीड हो गई है।")
+                                time.sleep(1)
+                                st.rerun()
+                        except Exception as ex:
+                            st.error(f"ऑटोमेशन इंजन एरर: {str(ex)}")
+
     # === थाना यूज़र व्यू ===
     else:
-        assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अज्ञात थाना")
+        assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अज्‍ज्ञात थाना")
         thana_tab1, thana_tab2 = st.tabs(["📝 दैनिक ड्यूटी feeding", "🔍 लाइव ड्यूटी देखें"])
         
         with thana_tab1:
