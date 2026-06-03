@@ -114,7 +114,7 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
 SP_PHOTO_URL = "https://docs.google.com/uc?export=view&id=1A_bC_D_EFG_HIJKLMNOP" 
 
 # =============================================================
-# चरण 2: लॉगिन गेटवे
+# चरण 2: लॉगिन गेटवे (यहाँ हमने स्पेस क्लीनर अपडेट कर दिया है)
 # =============================================================
 if not st.session_state.logged_in:
     col_logo, col_title = st.columns([1, 4])
@@ -123,16 +123,21 @@ if not st.session_state.logged_in:
         except Exception: st.markdown("<h1 style='font-size: 80px; margin: 0;'>👮</h1>", unsafe_allow_html=True)
             
     with col_title:
-        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश police | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='margin-top:0;'>दैनिक ड्यूटी मैनेजमेंट पोर्टल</h3>", unsafe_allow_html=True)
     
     with st.container():
         username = st.text_input("यूज़रनेम (CUG नंबर या मास्टर आईडी)")
         password = st.text_input("पासवर्ड (Password)", type="password")
         if st.button("🔓 पोर्टल में प्रवेश करें", use_container_width=True):
-            if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
+            
+            # 🎯 ब्राउज़र ऑटोफ़िल के छुपे हुए स्पेस को हटाने का लॉजिक
+            clean_username = username.strip()
+            clean_password = password.strip()
+            
+            if clean_username in USER_CREDENTIALS and USER_CREDENTIALS[clean_username] == clean_password:
                 st.session_state.logged_in = True
-                st.session_state.user_role = username
+                st.session_state.user_role = clean_username # बिना स्पेस वाला शुद्ध यूज़रनेम सेव होगा
                 st.rerun()
             else: st.error("❌ गलत लॉगिन विवरण।")
 
@@ -228,18 +233,16 @@ else:
             sc1, sc2, sc3 = st.columns([2, 2, 2])
             with sc1: search_master_thana = st.selectbox("थाना अनुसार फ़िल्टर", ["जनपद के सभी थाने"] + THANA_LIST, key="m_select")
             with sc2: 
-                # PNO टेक्स्ट इनपुट बॉक्स
                 search_pno = st.text_input("PNO नंबर से खोजें (केवल अंक मान्य)", "").strip()
             with sc3: search_name = st.text_input("कर्मचारी के नाम से खोजें", "").strip()
             
-            # 🎯 PNO इनपुट बॉक्स के लिए लाइव वैलिडेशन चेक लॉजिक
+            # PNO इनपुट बॉक्स के लिए लाइव वैलिडेशन चेक
             is_pno_valid = True
             if search_pno:
                 if not search_pno.isdigit():
                     st.error("⚠️ त्रुटि: कृपया PNO बॉक्स में केवल अंक (0-9) ही दर्ज करें! अक्षर या स्पेस मान्य नहीं हैं।")
                     is_pno_valid = False
 
-            # यदि वैलिडेशन फेल होता है तो बटन को निष्क्रिय (Disable) रखने के लिए कंडीशन
             if st.button("🔍 मास्टर सूची लोड / सर्च करें", use_container_width=True, disabled=not is_pno_valid):
                 try:
                     df_master = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
@@ -265,7 +268,7 @@ else:
 
     # === थाना यूज़र व्यू ===
     else:
-        assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अ未知 थाना")
+        assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अज्ञात थाना")
         thana_tab1, thana_tab2 = st.tabs(["📝 दैनिक ड्यूटी feeding", "🔍 लाइव ड्यूटी देखें"])
         
         with thana_tab1:
