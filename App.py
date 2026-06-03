@@ -94,11 +94,11 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
             d_dash = selected_date.strftime("%d-%m-%Y")
             filtered_df = filtered_df[filtered_df[date_col].astype(str).str.contains(d_dash)]
 
+    # 🎯 [सुधार] मास्टर मॉनिटरिंग के लिए एकदम सटीक थाना मैचिंग
     if selected_thana and selected_thana != "सभी थाने" and thana_col:
-        short_name = selected_thana.replace("कोतवाली", "").strip()
-        filtered_df = filtered_df[filtered_df[thana_col].astype(str).str.contains(short_name, case=False, na=False)]
+        filtered_df = filtered_df[filtered_df[thana_col].astype(str).str.strip() == selected_thana.strip()]
 
-    if selected_duty and selected_duty != "सभी अभ्यर्थी" and selected_duty != "सभी ड्यूटी" and duty_col:
+    if selected_duty and selected_duty != "सभी ड्यूटी" and duty_col:
         filtered_df = filtered_df[filtered_df[duty_col].astype(str).str.contains(str(selected_duty), case=False, na=False)]
             
     return filtered_df
@@ -115,7 +115,7 @@ if not st.session_state.logged_in:
         except Exception: st.markdown("<h1 style='font-size: 80px; margin: 0;'>👮</h1>", unsafe_allow_html=True)
             
     with col_title:
-        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश police | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='margin-top:0;'>दैनिक ड्यूटी मैनेजमेंट पोर्टल</h3>", unsafe_allow_html=True)
     
     with st.container():
@@ -164,14 +164,13 @@ else:
                     df_all_duties = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
                     filtered_df = filter_duty_data(df_all_duties, filter_date, filter_thana, filter_duty)
                     
-                    # 🎯 डुप्लीकेट कॉलम हटाकर सीधे इंडेक्स को 1 से शुरू करना
+                    # 🎯 [सुधार] केवल एक क्लीन "क्रम सं०" कॉलम बनाकर डिफ़ॉल्ट इंडेक्स छुपाना
                     if not filtered_df.empty:
                         filtered_df = filtered_df.reset_index(drop=True)
-                        filtered_df.index = filtered_df.index + 1
-                        filtered_df.index.name = "क्रम सं०"
+                        filtered_df.insert(0, 'क्रम सं०', range(1, len(filtered_df) + 1))
                     
                     st.success(f"📊 रिकॉर्ड लोड हो गया है [कुल: {len(filtered_df)} रिकॉर्ड]")
-                    st.dataframe(filtered_df, use_container_width=True)
+                    st.dataframe(filtered_df, use_container_width=True, hide_index=True)
                 except Exception as e: st.error(f"कनेक्शन फेल: {e}")
 
         with tab2:
@@ -180,19 +179,18 @@ else:
                 try:
                     df_master = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
                     if search_master_thana != "जनपद के सभी थाने":
-                        short_search = search_master_thana.replace("कोतवाली", "").strip()
+                        df_master.columns = [str(c).strip() for c in df_master.columns]
                         thana_col_m = next((c for c in df_master.columns if 'थाना' in c or 'thana' in c.lower()), df_master.columns[0])
-                        df_master = df_master[df_master[thana_col_m].astype(str).str.contains(short_search, case=False, na=False)]
+                        df_master = df_master[df_master[thana_col_m].astype(str).str.strip() == search_master_thana.strip()]
                     
                     if not df_master.empty:
                         df_master = df_master.reset_index(drop=True)
-                        df_master.index = df_master.index + 1
-                        df_master.index.name = "क्रम सं०"
+                        df_master.insert(0, 'क्रम सं०', range(1, len(df_master) + 1))
                         
-                    st.dataframe(df_master, use_container_width=True)
+                    st.dataframe(df_master, use_container_width=True, hide_index=True)
                 except Exception as e: st.error(str(e))
 
-    # === थाना यूज़र व्यू (लाइव चेकिंग के साथ 100% सटीक) ===
+    # === थाना यूज़र व्यू ===
     else:
         assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अज्ञात थाना")
         thana_tab1, thana_tab2 = st.tabs(["📝 दैनिक ड्यूटी फीडिंग", "🔍 लाइव ड्यूटी देखें"])
@@ -205,9 +203,10 @@ else:
             try:
                 df_all_staff = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
                 df_all_staff.columns = [str(c).strip() for c in df_all_staff.columns]
-                short_assigned = assigned_thana.replace("कोतवाली", "").strip()
                 thana_col_staff = next((c for c in df_all_staff.columns if 'थाना' in c or 'thana' in c.lower()), df_all_staff.columns[0])
-                df_thana_staff = df_all_staff[df_all_staff[thana_col_staff].astype(str).str.contains(short_assigned, case=False, na=False)]
+                
+                # 🎯 [सुधार] कर्मचारियों की फीडिंग लिस्ट में भी सख्त थाना मैचिंग (ताकि कोतवाली नगर और सादुल्लानगर अलग रहें)
+                df_thana_staff = df_all_staff[df_all_staff[thana_col_staff].astype(str).str.strip() == assigned_thana.strip()]
                 
                 idx = 1
                 for _, row in df_thana_staff.iterrows():
@@ -239,7 +238,7 @@ else:
                         payload = {"entry.154343115": pno, "entry.2122326148": name, "entry.1503406512": rank, "entry.926857669": assigned_thana, "entry.88588834": duty_type}
                         try:
                             requests.post(form_url, data=payload)
-                            st.success(f"✔️ {name} का रिकॉर्ड दर्ज हो गया है!")
+                            st.success(f"✔️ {name} का记录 दर्ज हो गया है!")
                             time.sleep(1)
                             st.rerun()
                         except: st.error("कनेक्शन फेल हुआ।")
@@ -250,21 +249,19 @@ else:
                 try:
                     df_thana_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
                     
-                    # 🎯 [सुधार] केवल और केवल लॉगिन वाले थाने का ही डेटा कड़ाई से फ़िल्टर करना
+                    # 🎯 [सुधार] केवल लॉगिन वाले विशिष्ट थाने का डेटा '==' से मैच करना ताकि कोतवाली नगर में सादुल्लानगर मिक्स न हो
                     df_thana_duty.columns = [str(c).strip() for c in df_thana_duty.columns]
                     thana_col_check = next((c for c in df_thana_duty.columns if any(x in c.lower() for x in ['थाना', 'thana', 'unit'])), None)
                     
                     if thana_col_check:
-                        short_thana_name = assigned_thana.replace("कोतवाली", "").strip()
-                        df_thana_duty = df_thana_duty[df_thana_duty[thana_col_check].astype(str).str.contains(short_thana_name, case=False, na=False)]
+                        df_thana_duty = df_thana_duty[df_thana_duty[thana_col_check].astype(str).str.strip() == assigned_thana.strip()]
                     
                     final_thana_df = filter_duty_data(df_thana_duty, thana_filter_date, assigned_thana, "सभी ड्यूटी")
                     
-                    # 🎯 डुप्लीकेट क्रम संख्या हटाकर केवल एक क्लीन इंडेक्स सेट करना
+                    # 🎯 [सुधार] यहाँ भी स्ट्रीमलिट का छुपाकर केवल एक साफ़ फ्रंट-एंड "क्रम सं०" कॉलम जोड़ना
                     if not final_thana_df.empty:
                         final_thana_df = final_thana_df.reset_index(drop=True)
-                        final_thana_df.index = final_thana_df.index + 1
-                        final_thana_df.index.name = "क्रम सं०"
+                        final_thana_df.insert(0, 'क्रम सं०', range(1, len(final_thana_df) + 1))
                         
-                    st.dataframe(final_thana_df, use_container_width=True)
+                    st.dataframe(final_thana_df, use_container_width=True, hide_index=True)
                 except Exception as e: st.error(str(e))
