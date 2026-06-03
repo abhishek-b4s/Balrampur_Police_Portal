@@ -145,7 +145,6 @@ else:
     live_t = int(time.time())
     SPREADSHEET_ID = "1WFvkW8CXYIN_bKJWN5m7Ieh814LlFLjYqZVpjivJhdA"
     
-    # मूल लाइव डेटा सोर्स जहाँ फॉर्म का डेटा जाता है
     DYNAMIC_DUTY_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=127153860&cache_bypass={live_t}"
     DYNAMIC_MASTER_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=0&cache_bypass={live_t}"
 
@@ -165,7 +164,6 @@ else:
                     df_all_duties = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
                     filtered_df = filter_duty_data(df_all_duties, filter_date, filter_thana, filter_duty)
                     
-                    # 🔍 क्रम संख्या हमेशा 1 से शुरू होगी (Reset Index) 🔍
                     if not filtered_df.empty:
                         filtered_df = filtered_df.reset_index(drop=True)
                         filtered_df.index = filtered_df.index + 1
@@ -193,7 +191,7 @@ else:
                     st.dataframe(df_master, use_container_width=True)
                 except Exception as e: st.error(str(e))
 
-    # === थाना यूज़र व्यू ===
+    # === थाना यूज़र व्यू (ड्यूटी फीड करने वाला टैब - रीसेट किया हुआ) ===
     else:
         assigned_thana = THANA_MAPPING.get(st.session_state.user_role, "अज्ञात थाना")
         thana_tab1, thana_tab2 = st.tabs(["📝 दैनिक ड्यूटी फीडिंग", "🔍 लाइव ड्यूटी देखें"])
@@ -201,6 +199,7 @@ else:
         with thana_tab1:
             st.subheader(f"ड्यूटी एंट्री फॉर्म - {assigned_thana}")
             
+            # पहले की तरह ही पूरा ड्रॉपडाउन क्रम (PNO | नाम) सेट करना
             staff_options = ["-- चुनें / Select Staff --"]
             staff_dict = {}
             try:
@@ -211,18 +210,26 @@ else:
                 df_thana_staff = df_all_staff[df_all_staff[thana_col_staff].astype(str).str.contains(short_assigned, case=False, na=False)]
                 
                 for _, row in df_thana_staff.iterrows():
-                    pno_val = str(row.iloc[0]).split('.')[0]
-                    display_text = f"{pno_val} | {row.iloc[1]}"
+                    pno_val = str(row.iloc[2]).split('.')[0] # C कॉलम से PNO
+                    name_val = str(row.iloc[0]) # A कॉलम से नाम व पदनाम
+                    rank_val = str(row.iloc[1]) # B कॉलम से पदनाम/रैंक
+                    
+                    display_text = f"{pno_val} | {name_val}"
                     staff_options.append(display_text)
-                    staff_dict[display_text] = {"pno": pno_val, "name": row.iloc[1], "rank": "आरक्षी"}
+                    staff_dict[display_text] = {"pno": pno_val, "name": name_val, "rank": rank_val}
             except Exception: pass
 
-            selected_staff = st.selectbox("सूची से कर्मचारी चुनें", staff_options)
+            selected_staff = st.selectbox("सूची से कर्मचारी चुनें (PNO | नाम)", staff_options)
             pno, name, rank = "", "", ""
+            
+            # अगर सेलेक्ट किया है, तो नीचे विवरण पहले की तरह साफ-साफ दिखेगा
             if selected_staff != "-- चुनें / Select Staff --":
                 pno = staff_dict[selected_staff]["pno"]
                 name = staff_dict[selected_staff]["name"]
                 rank = staff_dict[selected_staff]["rank"]
+                
+                # मुंशी जी की तसल्ली के लिए स्क्रीन पर साफ डिस्प्ले
+                st.markdown(f"**चयनित विवरण:** 🆔 PNO: `{pno}` | 👤 नाम: `{name}` | 🎖️ पदनाम: `{rank}`")
                 
             duty_type = st.selectbox("ड्यूटी / अवकाश का प्रकार", DUTY_TYPES)
             
@@ -233,7 +240,7 @@ else:
                         payload = {"entry.154343115": pno, "entry.2122326148": name, "entry.1503406512": rank, "entry.926857669": assigned_thana, "entry.88588834": duty_type}
                         try:
                             requests.post(form_url, data=payload)
-                            st.success(f"✔️ {name} का रिकॉर्ड दर्ज हो गया है!")
+                            st.success(f"✔️ {name} का रिकॉर्ड सफलतापूर्वक दर्ज हो गया है!")
                             time.sleep(1)
                             st.rerun()
                         except: st.error("कनेक्शन फेल हुआ।")
@@ -245,7 +252,6 @@ else:
                     df_thana_duty = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
                     final_thana_df = filter_duty_data(df_thana_duty, thana_filter_date, assigned_thana, "सभी ड्यूटी")
                     
-                    # 🔍 थानों के लिए भी क्रम संख्या हमेशा 1 से शुरू होगी (Reset Index) 🔍
                     if not final_thana_df.empty:
                         final_thana_df = final_thana_df.reset_index(drop=True)
                         final_thana_df.index = final_thana_df.index + 1
