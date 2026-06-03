@@ -13,7 +13,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# लाइव एक्सेल/गूगल शीट एंट्रीज तुरंत दिखाने के लिए कैशे क्लियरिंग
 st.cache_data.clear()
 
 st.markdown("""
@@ -204,27 +203,36 @@ else:
                 df_all_staff = pd.read_csv(DYNAMIC_MASTER_SHEET_URL)
                 df_all_staff.columns = [str(c).strip() for c in df_all_staff.columns]
                 
-                # 🎯 [जड़ से सुधार] कॉलम का सटीक नाम ढूंढना (ताकि खिसकने पर भी गलत डेटा न उठे)
-                name_col = next((c for c in df_all_staff.columns if 'नाम' in c or 'name' in c.lower()), None)
-                rank_col = next((c for c in df_all_staff.columns if 'पदनाम' in c or 'rank' in c.lower() or 'पद' in c), None)
-                pno_col = next((c for c in df_all_staff.columns if 'pno' in c.lower() or 'पीएनओ' in c or 'नम्बर' in c), None)
-                thana_col_staff = next((c for c in df_all_staff.columns if 'थाना' in c or 'thana' in c.lower()), df_all_staff.columns[0])
-                
-                df_thana_staff = df_all_staff[df_all_staff[thana_col_staff].astype(str).str.strip() == assigned_thana.strip()]
+                # 🎯 [कठोर इंडेक्सिंग फिक्स] डायनेमिक सर्च हटाकर सीधे पुलिस स्टैंडर्ड कॉलम पोजीशन लॉक की गई है
+                # क्रम: 0=नाम, 1=पदनाम, 2=PNO नम्बर, 3=थाना
+                thana_col_idx = 3 
+                df_thana_staff = df_all_staff[df_all_staff.iloc[:, thana_col_idx].astype(str).str.strip() == assigned_thana.strip()]
                 
                 idx = 1
                 for _, row in df_thana_staff.iterrows():
-                    # अगर नाम से कॉलम मिल गए तो वही उठाओ, वरना पुरानी पोजीशन बैकअप
-                    name_val = str(row[name_col]) if name_col else str(row.iloc[0])
-                    rank_val = str(row[rank_col]) if rank_col else str(row.iloc[1])
-                    pno_val = str(row[pno_col]).split('.')[0] if pno_col else str(row.iloc[2]).split('.')[0]
+                    name_val = str(row.iloc[0]).strip()
+                    rank_val = str(row.iloc[1]).strip()
+                    pno_val = str(row.iloc[2]).split('.')[0].strip()
                     
-                    # 🎯 ड्रॉपडाउन का बिल्कुल साफ फ़ॉर्मेट (डबल सीरियल नंबर का अंत)
+                    # 🎯 परफेक्ट डिस्प्ले फ़ॉर्मेट: "1 | मनोज कुमार सिंह | PNO: 920580949 | आरक्षी"
                     display_text = f"{idx} | {name_val} | PNO: {pno_val} | {rank_val}"
                     staff_options.append(display_text)
                     staff_dict[display_text] = {"pno": pno_val, "name": name_val, "rank": rank_val}
                     idx += 1
-            except Exception: pass
+            except Exception:
+                # बैकअप विकल्प अगर आपकी मास्टर शीट में पहला कॉलम 'क्र०सं०' का है (0=क्र०सं०, 1=नाम, 2=पदनाम, 3=PNO, 4=थाना)
+                try:
+                    df_thana_staff = df_all_staff[df_all_staff.iloc[:, 4].astype(str).str.strip() == assigned_thana.strip()]
+                    idx = 1
+                    for _, row in df_thana_staff.iterrows():
+                        name_val = str(row.iloc[1]).strip()
+                        rank_val = str(row.iloc[2]).strip()
+                        pno_val = str(row.iloc[3]).split('.')[0].strip()
+                        display_text = f"{idx} | {name_val} | PNO: {pno_val} | {rank_val}"
+                        staff_options.append(display_text)
+                        staff_dict[display_text] = {"pno": pno_val, "name": name_val, "rank": rank_val}
+                        idx += 1
+                except: pass
 
             selected_staff = st.selectbox("सूची से कर्मचारी चुनें (क्रम | नाम | PNO | पदनाम)", staff_options)
             pno, name, rank = "", "", ""
