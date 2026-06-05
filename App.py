@@ -39,7 +39,7 @@ st.markdown("""
     }
     [data-testid="stDataFrame"] { background-color: #ffffff !important; border: 3px solid #002147 !important; }
     
-    /* समरी कार्ड्स के लिए विशेष डिज़ाइन */
+    /* समरी कार्ड्स के लिए विशेष डिज़ाइन */
     .metric-card {
         background-color: #ffffff;
         border-left: 5px solid #002147;
@@ -57,7 +57,7 @@ THANA_LIST = [
     "गौरा चौराहा", "गैड़ास बुजुर्ग", "श्रीदत्तगंज", "ए0एच0टी0 थाना", "रिजर्व पुलिस line", "महिला थाना", "साइबर क्राइम थाना"
 ]
 
-DUTY_TYPES = ["लॉ एंड ओरडर (L&O)", "वीआईपी (VIP) – ड्यूटी", "पिकेट/गश्त", "कोर्ट ड्यूटी", "समन तामीला", "तफ्तीश/जांच","चाइल्डケア अवकाश", "पितृत्व अवकाश", "मातृत्व अवकाश", "आकस्मिक अवकाश","प्रसूति अवकाश", "उपार्जित अवकाश", "सामान्य अवकाश", "गैर हाजिर", "निलम्बित", "अन्य"]
+DUTY_TYPES = ["लॉ एंड ओरडर (L&O)", "वीआईपी (VIP) – ड्यूटी", "पिकेट/गश्त", "कोर्ट ड्यूटी", "समन तामीला", "तफ्तीश/जांच","चाइल्ड केयर अवकाश", "पितृत्व अवकाश", "मातृत्व अवकाश", "आकस्मिक अवकाश","प्रसूति अवकाश", "उपार्जित अवकाश", "सामान्य अवकाश", "गैर हाजिर", "निलम्बित", "अन्य"]
 
 # रैंडम ड्यूटी के लिए केवल एक्टिव ड्यूटियों की सूची
 ACTIVE_DUTY_OPTIONS = ["लॉ एंड ओरडर (L&O)", "वीआईपी (VIP) – ड्यूटी", "पिकेट/गश्त", "कोर्ट ड्यूटी", "समन तामीला", "तफ्तीश/जांच"]
@@ -265,9 +265,9 @@ else:
                     st.dataframe(df_master, use_container_width=True)
                 except Exception as e: st.error(str(e))
 
-        # === 🎯 नया चरण: स्वचालित रैंडम ड्यूटी अलॉटमेंट टैब ===
+        # === 🎯 मुख्यालय रैंडम ड्यूटी अलॉटमेंट टैब ===
         with tab3:
-            st.subheader("🎯 मुख्यालय रैंडम ड्यूटी अलॉटमेंट पैनल")
+            st.subheader("🎯 मुख्यालय रैंडम ड्यूटी अलॉटमेंट PANEL")
             st.info("यह सिस्टम आज की तारीख में छुट्टी/गैर-हाजिर/निलम्बित कर्मियों को छोड़कर बाकी बचे सभी कर्मियों की रैंडम ड्यूटी ऑटो-अलॉट कर देगा।")
             
             rc1, rc2 = st.columns(2)
@@ -327,7 +327,7 @@ else:
                                 rank_val = str(row.iloc[3]).strip()
                                 thana_val = str(row.iloc[4]).strip()
                                 
-                                # यदि पहले से छुट्टी पर नहीं है तो पूल में जोड़ें
+                                # यदि पहले से छुट्टी पर नहीं है तो पूल में जोड़ें
                                 if pno_val not in excluded_pnos:
                                     available_pool.append({
                                         "pno": pno_val, "name": name_val, "rank": rank_val, "thana": thana_val
@@ -372,7 +372,7 @@ else:
                                     pct = int(((idx + 1) / len(available_pool)) * 100)
                                     progress_bar.progress(pct)
                                     status_text.text(f"⏳ रिकॉर्ड फीड हो रहा है: {idx+1}/{len(available_pool)} ({person['name']})")
-                                    time.sleep(0.1) # सर्वर थ्रॉटलिंग से बचने के लिए छोटा पॉज
+                                    time.sleep(0.1)
                                     
                                 st.balloons()
                                 st.success(f"✔️ बधाई हो! कुल {success_count} कर्मियों की रैंडम ड्यूटी सफलतापूर्वक गूगल शीट में फीड हो गई है।")
@@ -451,6 +451,10 @@ else:
                         is_duplicate = False
                         existing_duty = ""
                         
+                        # सुरक्षा कवच: पुराने अवकाश/गैरहाजिर/निलंबन का विश्लेषण करने के लिए वैरिएबल्स
+                        is_on_leave_period = False
+                        leave_period_detail = ""
+                        
                         try:
                             df_check = pd.read_csv(DYNAMIC_DUTY_SHEET_URL)
                             df_check.columns = [str(c).strip() for c in df_check.columns]
@@ -459,18 +463,63 @@ else:
                             p_col = next((c for c in df_check.columns if any(x in c.lower() for x in ['pno', 'पीएनओ', 'नम्बर'])), None)
                             du_col = next((c for c in df_check.columns if any(x in c.lower() for x in ['ड्यूटी', 'duty'])), None)
                             
-                            if d_col and p_col:
+                            if d_col and p_col and du_col:
+                                # 1. आज की तारीख में डायरेक्ट डुप्लीकेट चेक
                                 df_check['temp_date'] = pd.to_datetime(df_check[d_col], errors='coerce').dt.date
                                 match_rows = df_check[(df_check['temp_date'] == today_date) & (df_check[p_col].astype(str).str.contains(str(pno)))]
                                 
                                 if not match_rows.empty:
                                     is_duplicate = True
-                                    existing_duty = str(match_rows.iloc[0][du_col]) if du_col else "अन्य ड्यूटी"
+                                    existing_duty = str(match_rows.iloc[0][du_col])
+                                
+                                # 2. ऐतिहासिक टाइमलाइन स्कैन (क्या आज यह कर्मी किसी स्वीकृत अवकाश काल के बीच में है?)
+                                # इस कर्मी के इतिहास की सभी प्रविष्टियाँ निकालें
+                                staff_history = df_check[df_check[p_col].astype(str).str.contains(str(pno))]
+                                
+                                for _, h_row in staff_history.iterrows():
+                                    history_duty_str = str(h_row[du_col])
+                                    
+                                    # अगर इतिहास में अवकाश दर्ज है
+                                    if "अवकाश" in history_duty_str and "से" in history_duty_str and "तक" in history_duty_str:
+                                        try:
+                                            # स्ट्रिंग से तारीखें निकालना: "सामान्य अवकाश (03/06/2026 से 06/06/2026 तक)"
+                                            parts = history_duty_str.split("(") [1].split(")")[0] # "03/06/2026 से 06/06/2026 तक"
+                                            start_str = parts.split("से")[0].strip() # "03/06/2026"
+                                            end_str = parts.split("से")[1].split("तक")[0].strip() # "06/06/2026"
+                                            
+                                            h_start = datetime.strptime(start_str, "%d/%m/%Y").date()
+                                            h_end = datetime.strptime(end_str, "%d/%m/%Y").date()
+                                            
+                                            # चेक करें कि क्या आज की तारीख इस रेंज में आती है
+                                            if h_start <= today_date <= h_end:
+                                                is_on_leave_period = True
+                                                leave_period_detail = history_duty_str
+                                                break
+                                        except:
+                                            pass
+                                            
+                                    # अगर इतिहास में अनिश्चितकालीन 'गैर हाजिर' या 'निलम्बित' दर्ज है
+                                    elif any(x in history_duty_str for x in ["गैर हाजिर", "निलम्बित"]) and "दिनांक" in history_duty_str:
+                                        try:
+                                            # स्ट्रिंग से तारीख निकालना: "गैर हाजिर (दिनांक 03/06/2026 से)"
+                                            start_str = history_duty_str.split("दिनांक")[1].split("से")[0].strip() # "03/06/2026"
+                                            h_start = datetime.strptime(start_str, "%d/%m/%Y").date()
+                                            
+                                            # अगर गैर-हाजिरी की तारीख आज या आज से पहले की है
+                                            if h_start <= today_date:
+                                                is_on_leave_period = True
+                                                leave_period_detail = history_duty_str
+                                                break
+                                        except:
+                                            pass
                         except:
                             pass
                         
+                        # --- निर्णय एवं सुरक्षा रूल्स ---
                         if is_leave and leave_start > leave_end:
                             st.error("❌ कृपया सही समयावधि चुनें!")
+                        elif is_on_leave_period:
+                            st.error(f"❌ **ड्यूटी ब्लॉक की गई!** \n\n कर्मी **{name}** आज की तारीख ({today_date.strftime('%d-%m-%Y')}) को रिकॉर्ड के अनुसार **[ {leave_period_detail} ]** पर चल रहे हैं। जब तक अवकाश समाप्त नहीं होता, इनकी कोई अन्य ड्यूटी नहीं लगाई जा सकती।")
                         elif is_duplicate:
                             st.error(f"⚠️ एलर्ट: {name} (PNO: {pno}) की ड्यूटी आज की तारीख ({today_date.strftime('%d-%m-%Y')}) में पहले से ही '[ {existing_duty} ]' पर लगी है। कृपया किसी और कर्मी को चुनें।")
                         else:
