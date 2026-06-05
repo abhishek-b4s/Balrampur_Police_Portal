@@ -161,24 +161,28 @@ def filter_duty_data(df, selected_date, selected_thana, selected_duty):
             
     return filtered_df
 
-SP_PHOTO_URL = "https://docs.google.com/uc?export=view&id=1A_bC_D_EFG_HIJKLMNOP" 
+SP_PHOTO_URL = "https://uppolice.gov.in/images/logo-w-a.png" 
 
 # =============================================================
 # चरण 2: लॉगिन गेटवे (स्पेस क्लीनर के साथ)
 # =============================================================
 if not st.session_state.logged_in:
-    col_logo, col_title = st.columns([1, 4])
-    with col_logo: 
-        try: st.image(SP_PHOTO_URL, width=135)
-        except Exception: st.markdown("<h1 style='font-size: 80px; margin: 0;'>👮</h1>", unsafe_allow_html=True)
-            
-    with col_title:
-        st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
-        st.markdown("<h3 style='margin-top:0; color:#000000;'>दैनिक ड्यूटी मैनेजमेंट पोर्टल</h3>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    col_c1, col_center, col_c2 = st.columns([1, 2, 1])
     
-    with st.container():
+    with col_center:
+        col_logo_c1, col_logo_c2, col_logo_c3 = st.columns([1, 1, 1])
+        with col_logo_c2:
+            try: st.image(SP_PHOTO_URL, width=100)
+            except Exception: st.markdown("<h1 style='font-size: 80px; margin: 0; text-align: center;'>👮</h1>", unsafe_allow_html=True)
+        
+        st.markdown("<h1 style='color:#002147; margin-bottom:5px; text-align:center; font-size: 28px;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
+        st.markdown("<h3 style='margin-top:0; color:#000000; text-align:center; margin-bottom:30px;'>दैनिक ड्यूटी मैनेजमेंट पोर्टल</h3>", unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
         username = st.text_input("यूज़रनेम (CUG नंबर या मास्टर आईडी)")
         password = st.text_input("पासवर्ड (Password)", type="password")
+        st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🔓 पोर्टल में प्रवेश करें", use_container_width=True):
             clean_username = username.strip()
             clean_password = password.strip()
