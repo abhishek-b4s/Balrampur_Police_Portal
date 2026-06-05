@@ -48,6 +48,52 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         text-align: center;
     }
+    
+    /* केवल लेबल्स को काला रंग दें */
+    .stTextInput label, .stSelectbox label, .stDateInput label, .stMultiSelect label, .stForm label {
+        color: #000000 !important;
+    }
+    label {
+        color: #000000 !important;
+    }
+    
+    /* Tab labels को काला रंग दें */
+    .stTabs [data-baseweb="tab-list"] button {
+        color: #000000 !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        color: #000000 !important;
+    }
+    
+    /* Header styling */
+    .header-container {
+        background-color: #002147;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .header-container h1 {
+        color: #ffffff;
+        margin: 0;
+        text-align: center;
+        font-size: 24px;
+    }
+    
+    /* Footer styling */
+    .footer-container {
+        background-color: #002147;
+        padding: 20px;
+        border-radius: 8px;
+        margin-top: 40px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .footer-container p {
+        color: #ffffff;
+        margin: 0;
+        font-size: 14px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -128,7 +174,7 @@ if not st.session_state.logged_in:
             
     with col_title:
         st.markdown("<h1 style='color:#002147; margin-bottom:0;'>🚨 उत्तर प्रदेश पुलिस | जनपद बलरामपुर</h1>", unsafe_allow_html=True)
-        st.markdown("<h3 style='margin-top:0;'>दैनिक ड्यूटी मैनेजमेंट पोर्टल</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='margin-top:0; color:#000000;'>दैनिक ड्यूटी मैनेजमेंट पोर्टल</h3>", unsafe_allow_html=True)
     
     with st.container():
         username = st.text_input("यूज़रनेम (CUG नंबर या मास्टर आईडी)")
@@ -147,7 +193,7 @@ if not st.session_state.logged_in:
 # =============================================================
 else:
     col_m, col_l = st.columns([8, 2])
-    with col_m: st.markdown("### 🚓 बलरामपुर पुलिस डेली ड्यूटी पोर्टल")
+    with col_m: st.markdown("### <span style='color:#000000;'>🚓 बलरामपुर पुलिस डेली ड्यूटी पोर्टल</span>", unsafe_allow_html=True)
     with col_l:
         if st.button("🔒 पोर्टल लॉगआउट", use_container_width=True):
             st.session_state.logged_in = False
@@ -164,7 +210,7 @@ else:
 
     # === मुख्यालय मास्टर व्यू ===
     if st.session_state.user_role == "hq_master":
-        st.header("📊 मुख्यालय मॉनिटरिंग डैशबोर्ड (Master Page)")
+        st.markdown("<h2 style='color:#000000;'>📊 मुख्यालय मॉनिटरिंग डैशबोर्ड (Master Page)</h2>", unsafe_allow_html=True)
         tab1, tab2, tab3 = st.tabs(["📋 लाइव ड्यूटी मॉनिटर", "👮 कर्मी विवरण एवं स्मार्ट सर्च", "🎯 स्वचालित रैंडम ड्यूटी अलॉटमेंट"])
         
         with tab1:
@@ -204,7 +250,7 @@ else:
                         
                         active_duty = total_fed_today - (leave_count + absent_count + sus_count)
                         
-                        st.markdown(f"<h5>📌 स्टैटिस्टिक्स रिपोर्ट: {filter_thana} ({filter_date.strftime('%d-%m-%Y')})</h5>", unsafe_allow_html=True)
+                        st.markdown(f"<h5 style='color:#000000;'>📌 स्टैटिस्टिक्स रिपोर्ट: {filter_thana} ({filter_date.strftime('%d-%m-%Y')})</h5>", unsafe_allow_html=True)
                         m_col1, m_col2, m_col3, m_col4, m_col5, m_col6, m_col7 = st.columns(7)
                         
                         m_col1.markdown(f"<div class='metric-card' style='border-left-color:#17a2b8;'><h6 style='margin:0;color:#17a2b8;'>कुल स्वीकृत कर्मी</h6><h2 style='margin:5px 0;color:#17a2b8;'>{total_allowed_strength}</h2></div>", unsafe_allow_html=True)
@@ -225,12 +271,12 @@ else:
                         m_col2.markdown(f"<div class='metric-card' style='border-left-color:#002147;'><h6 style='margin:0;color:#002147;'>आज दर्ज कर्मी</h6><h2 style='margin:5px 0;color:#002147;'>0</h2></div>", unsafe_allow_html=True)
                         m_col3.markdown(f"<div class='metric-card' style='border-left-color:#dc3545;'><h6 style='margin:0;color:#dc3545;'>दर्ज नहीं (शेष)</h6><h2 style='margin:5px 0;color:#dc3545;'>{total_allowed_strength}</h2></div>", unsafe_allow_html=True)
                     
-                    st.success(f"📊 रिकॉर्ड लोड हो गया है [कुल प्रदर्शित सूची: {len(filtered_df)} रिकॉर्ड]")
+                    st.markdown(f"<div style='background-color:#d4edda; color:#000000; padding:12px; border-radius:6px; border:1px solid #c3e6cb;'>📊 रिकॉर्ड लोड हो गया है [कुल प्रदर्शित सूची: {len(filtered_df)} रिकॉर्ड]</div>", unsafe_allow_html=True)
                     st.dataframe(filtered_df, use_container_width=True)
                 except Exception as e: st.error(f"कनेक्शन फेल: {e}")
 
         with tab2:
-            st.subheader("🔍 कर्मियों की खोज (स्मार्ट सर्च इंजन)")
+            st.markdown("<h3 style='color:#000000;'>🔍 कर्मियों की खोज (स्मार्ट सर्च इंजन)</h3>", unsafe_allow_html=True)
             sc1, sc2, sc3 = st.columns([2, 2, 2])
             with sc1: search_master_thana = st.selectbox("थाना अनुसार फ़िल्टर", ["जनपद के सभी थाने"] + THANA_LIST, key="m_select")
             with sc2: search_pno = st.text_input("PNO नंबर से खोजें (केवल अंक मान्य)", "").strip()
@@ -261,13 +307,13 @@ else:
                         df_master.index = df_master.index + 1
                         df_master.index.name = "क्रम सं०"
                         
-                    st.success(f"🔍 खोज के आधार पर {len(df_master)} कर्मियों का विवरण मिला।")
+                    st.markdown(f"<div style='background-color:#d4edda; color:#000000; padding:12px; border-radius:6px; border:1px solid #c3e6cb;'>🔍 खोज के आधार पर {len(df_master)} कर्मियों का विवरण मिला।</div>", unsafe_allow_html=True)
                     st.dataframe(df_master, use_container_width=True)
                 except Exception as e: st.error(str(e))
 
         # === 🎯 मुख्यालय रैंडम ड्यूटी अलॉटमेंट टैब ===
         with tab3:
-            st.subheader("🎯 मुख्यालय रैंडम ड्यूटी अलॉटमेंट PANEL")
+            st.markdown("<h3 style='color:#000000;'>🎯 मुख्यालय रैंडम ड्यूटी अलॉटमेंट PANEL</h3>", unsafe_allow_html=True)
             st.info("यह सिस्टम आज की तारीख में छुट्टी/गैर-हाजिर/निलम्बित कर्मियों को छोड़कर बाकी बचे सभी कर्मियों की रैंडम ड्यूटी ऑटो-अलॉट कर देगा।")
             
             rc1, rc2 = st.columns(2)
@@ -387,7 +433,7 @@ else:
         thana_tab1, thana_tab2 = st.tabs(["📝 दैनिक ड्यूटी feeding", "🔍 लाइव ड्यूटी देखें"])
         
         with thana_tab1:
-            st.subheader(f"ड्यूटी एंट्री फॉर्म - {assigned_thana}")
+            st.markdown(f"<h3 style='color:#000000;'>ड्यूटी एंट्री फॉर्म - {assigned_thana}</h3>", unsafe_allow_html=True)
             
             staff_options = ["-- चुनें / Select Staff --"]
             staff_dict = {}
@@ -570,3 +616,6 @@ else:
                         
                     st.dataframe(final_thana_df, use_container_width=True)
                 except Exception as e: st.error(str(e))
+
+# === फुटर सेक्शन ===
+st.markdown("<div class='footer-container'><p>© 2026 बलरामपुर पुलिस | Created by Balrampur Police</p></div>", unsafe_allow_html=True)
